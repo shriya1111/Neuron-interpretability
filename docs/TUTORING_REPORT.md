@@ -409,7 +409,16 @@ On this CPU that's about 6 minutes per prompt (measured: 360 s and 316 s for the
    ```bash
    NEURONLAB_GPU=A10G modal run --detach cloud/modal_jlens.py --n-prompts 1000 --tag qwen3-0.6b-wikitext-n1000 --chunk 25 --dim-batch 32
    ```
-   Estimate: about 1,000 × 15 s ≈ 4 h on an A10G, roughly $4–5. Download when done:
+   **Pitfall:** this was cancelled after 25 prompts. Killing the local client (a shell `timeout`) sent Modal a
+   cancellation even with `--detach`. **Fix:** deploy the app, then *spawn* the call. A spawned call on a deployed
+   app runs independently of the local process. It resumed from the checkpoint at 25:
+   ```bash
+   NEURONLAB_GPU=A10G modal deploy cloud/modal_jlens.py
+   ```
+   ```bash
+   NEURONLAB_GPU=A10G python cloud/modal_jlens.py spawn --n-prompts 1000 --tag qwen3-0.6b-wikitext-n1000
+   ```
+   Estimate: about 1,000 × 16 s ≈ 4.5 h on an A10G, roughly $5. Download when done:
    ```bash
    modal volume get neuronlab-jlens qwen3-0.6b-wikitext-n1000 data/jlens/
    ```

@@ -6,7 +6,10 @@ to 2,000 characters, max_seq_len 128, skip the first 16 positions and the last, 
 Usage (from the repo root, with a Modal token configured):
 
     NEURONLAB_GPU=A10G modal run cloud/modal_jlens.py --n-prompts 4 --tag timing          # quick cost/timing check
-    modal run --detach cloud/modal_jlens.py --n-prompts 1000 --tag qwen3-0.6b-wikitext-n1000
+    # Long runs: deploy, then spawn. A spawned call runs independently of the local client
+    # (killing a `modal run --detach` client can still cancel the input).
+    NEURONLAB_GPU=A10G modal deploy cloud/modal_jlens.py
+    python cloud/modal_jlens.py spawn --n-prompts 1000 --tag qwen3-0.6b-wikitext-n1000
     modal volume get neuronlab-jlens qwen3-0.6b-wikitext-n1000 data/jlens/
 
 Progress is checkpointed to the Modal volume after every chunk, so a rerun with the same --tag resumes.
@@ -48,7 +51,7 @@ def wikitext_prompts(n: int, max_chars: int = 2000, min_chars: int = 500) -> lis
     return out
 
 
-@app.function(image=image, gpu=GPU, volumes={"/out": out_vol, "/hf": hf_vol}, timeout=6 * 3600)
+@app.function(image=image, gpu=GPU, volumes={"/out": out_vol, "/hf": hf_vol}, timeout=10 * 3600)
 def fit(model_id: str, n_prompts: int, tag: str, dim_batch: int, max_seq_len: int, dtype: str, chunk: int,
         gpu: str = GPU) -> dict:
     import logging
@@ -100,3 +103,22 @@ def main(model_id: str = "Qwen/Qwen3-0.6B", n_prompts: int = 1000, tag: str = "q
          dim_batch: int = 64, max_seq_len: int = 128, dtype: str = "float32", chunk: int = 25):
     meta = fit.remote(model_id, n_prompts, tag, dim_batch, max_seq_len, dtype, chunk, GPU)
     print(json.dumps(meta, indent=2))
+
+
+if __name__ == "__main__":
+    # python cloud/modal_jlens.py spawn [--n-prompts N] [--tag T] [--dim-batch B] [--chunk C]
+    import argparse
+
+    ap = argparse.ArgumentParser()
+    ap.add_argument("cmd", choices=["spawn"])
+    ap.add_argument("--model-id", default="Qwen/Qwen3-0.6B")
+    ap.add_argument("--n-prompts", type=int, default=1000)
+    ap.add_argument("--tag", default="qwen3-0.6b-wikitext-n1000")
+    ap.add_argument("--dim-batch", type=int, default=32)
+    ap.add_argument("--max-seq-len", type=int, default=128)
+    ap.add_argument("--dtype", default="float32")
+    ap.add_argument("--chunk", type=int, default=25)
+    a = ap.parse_args()
+    f = modal.Function.from_name("neuronlab-jlens", "fit")
+    call = f.spawn(a.model_id, a.n_prompts, a.tag, a.dim_batch, a.max_seq_len, a.dtype, a.chunk, GPU)
+    print("spawned function call:", call.object_id)

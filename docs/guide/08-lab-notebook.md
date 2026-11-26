@@ -78,4 +78,5 @@ contexts the model does know.
 Vert/\sqrt d$ for the same first prompts were **identical**
   on CPU and GPU (8.907, 8.926, …). That's evidence the fit is deterministic and hardware-independent.
 * **Full fit:** 1,000 WikiText prompts, Anthropic's `jlens` at commit 581d398. Launched detached on Modal
-  (app ap-duPL4moboS6ko65jXgBGx7), expected to take about 4 h.
+  (app ap-duPL4moboS6ko65jXgBGx7). It was cancelled after 25 prompts when the local client was killed. It was relaunched
+  as a spawned call on the deployed app `neuronlab-jlens` (fc-01M8CH55PVG1DF61M0QJT7QSEM), resuming at prompt 26.
