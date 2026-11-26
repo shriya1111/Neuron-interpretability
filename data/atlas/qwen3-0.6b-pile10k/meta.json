@@ -1,0 +1,42 @@
+{
+  "model_id": "Qwen/Qwen3-0.6B",
+  "model_revision": null,
+  "dtype": "float32",
+  "gpu": "A10G",
+  "corpus": "NeelNanda/pile-10k minus BookCorpus2, Books3, OpenWebText2, StackExchange",
+  "n_docs": 7070,
+  "tokens_per_doc": 256,
+  "positions_scanned_excl_pos0": 1548037,
+  "positions_per_domain": {
+    "ArXiv": 23025,
+    "DM Mathematics": 25245,
+    "Enron Emails": 8002,
+    "EuroParl": 1405,
+    "FreeLaw": 55808,
+    "Github": 179475,
+    "Gutenberg (PG-19)": 510,
+    "HackerNews": 15513,
+    "NIH ExPorter": 23336,
+    "OpenSubtitles": 6885,
+    "PhilPapers": 1275,
+    "Pile-CC": 548164,
+    "PubMed Abstracts": 314224,
+    "PubMed Central": 63551,
+    "USPTO Backgrounds": 121695,
+    "Ubuntu IRC": 510,
+    "Wikipedia (en)": 156949,
+    "YoutubeSubtitles": 2465
+  },
+  "top_k": 24,
+  "reference_docs_for_thresholds": 200,
+  "threshold_quantile": 0.999,
+  "readout_k": 12,
+  "notes": [
+    "top firings require an open gate and exclude position 0",
+    "thr_pos/thr_neg follow the paper (all positions); *_nz exclude position 0",
+    "index encoding: flat = doc * tokens_per_doc + position"
+  ],
+  "torch": "2.15.0+cu132",
+  "transformers": "5.24.1",
+  "seconds": 575.8
+}

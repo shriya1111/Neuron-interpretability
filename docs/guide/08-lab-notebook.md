@@ -80,3 +80,26 @@ Vert/\sqrt d$ for the same first prompts were **identical**
 * **Full fit:** 1,000 WikiText prompts, Anthropic's `jlens` at commit 581d398. Launched detached on Modal
   (app ap-duPL4moboS6ko65jXgBGx7). It was cancelled after 25 prompts when the local client was killed. It was relaunched
   as a spawned call on the deployed app `neuronlab-jlens` (fc-01M8CH55PVG1DF61M0QJT7QSEM), resuming at prompt 26.
+
+---
+
+### 2026-11-26 — Full Atlas scan of Qwen3-0.6B
+
+* **Corpus:** Pile-10k minus Books3, BookCorpus2, StackExchange and OpenWebText2 left **7,070 documents, exactly the
+  paper's count** (Appendix B.1). 1,548,037 positions were scanned, position 0 excluded. The largest domains are Pile-CC
+  (548k), PubMed Abstracts (314k), GitHub (179k) and Wikipedia (157k).
+* **Cost and time:** 576 s on one A10G. The first attempt stalled in the CPU threshold step because the Modal function
+  had no CPU request; it ran normally once given 8 cores.
+* **Verification:** 16 recorded top firings from 8 random neurons were recomputed locally, one document at a time on CPU.
+  The max relative error was $3.5\times10^{-6}$, and every one had an open gate.
+
+### 2026-11-26 — A readout that says "John" is not a John neuron (L21 n29)
+
+* **Search:** 15 neurons have `" John"` in their ±w logit-lens top 12. The top hit is **L21 n29 (+)**, where `" John"` is
+  readout token #1.
+* **Firings:** its strongest + firings are code punctuation (`*>(`, `(!`, `[`) in GitHub and HackerNews text, with
+  activations around 60. It fires (gate open, +) on **10.3% of all tokens**.
+* **Ablation:** zeroing it in its top firing context changes the prediction very little (KL 0.039, top-1 unchanged).
+  The largest changes are to tokens that were already very unlikely.
+* **Conclusion:** the readout is a hypothesis, not a classification. This neuron is not shown to "add John" in any
+  context. This is the paper's own caution, and why the Atlas puts firings, readouts and a causal test side by side.

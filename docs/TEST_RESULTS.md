@@ -58,6 +58,28 @@ New checks:
 UI end-to-end (headless Chromium, Qwen3-0.6B): Vocabulary Lenses (neuron readout, residual lens) and the
 Polysemanticity Lab (scan → run experiment → verdict "inconclusive" for L27 n81 −) render with no console errors.
 
+## Atlas + Weight Editor — 2026-11-26
+
+`cd backend && pytest -q` → **108 passed** (102 earlier + 3 Atlas reader + 3 more weight-edit/API).
+
+| Check | Result |
+|---|---|
+| prune == activation zero-ablation; revert is bit-identical | yes |
+| scale_output == activation scale; scale of up row == activation scale | atol 1e-4 |
+| set_output / add_direction exact; revert restores exactly | yes |
+| original_weights() reproduces the unedited model exactly, then restores the edits | bitwise |
+| overlapping edits must be reverted in order; failed edits roll back | yes |
+| real model: prune → provenance lists edit → compare (incl. held-out) → revert all → logits bit-identical | yes |
+| Atlas reader on a synthetic atlas: snippets, prefixes, rates, sorting, search, validation | yes |
+| Atlas scan vs. local recomputation (16 random top firings) | max rel. error 3.5e-6; all gates open |
+| Pile-10k after exclusions | 7,070 docs (paper: 7,070) |
+
+UI end-to-end (headless Chromium):
+* **Weight Editor:** apply prune → banner → compare (perplexity ratio 1.0118 for L27 n81) → revert all → banner gone.
+* **Atlas:** overview canvas, word search (15 hits for "John"), neuron page, ablate-on-firing, `j` key navigation and the
+  layer table all work.
+* No console errors.
+
 <details><summary>Full pytest listing</summary>
 
 ```
