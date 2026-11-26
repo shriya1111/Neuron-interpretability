@@ -66,3 +66,15 @@ contexts the model does know.
 * `" John"` takes over from layer 23 and ends at $p=0.42$.
 * Before layer ~18 the lens shows function words (`" of"`, `","`, `" and"`), the usual early-layer incoherence.
 * `" John"` ranks: 42,265 (embedding) → 834 (L4) → 30 (L9) → 6 (L21) → 1 (L24 onward).
+
+---
+
+### 2026-11-26 — J-lens fit for Qwen3-0.6B: timings and a CPU/GPU cross-check
+
+* **CPU (4 cores, fp32):** 360 s and 316 s for the first two prompts. The run died when the idle container was paused
+  (before its first checkpoint).
+* **Modal A10G (fp32, dim_batch 32):** 11–15 s per prompt.
+* **Cross-check:** the per-prompt Jacobian norms $\max_L \lVert JVert/\sqrt d$ for the same first prompts were **identical**
+  on CPU and GPU (8.907, 8.926, …). That's evidence the fit is deterministic and hardware-independent.
+* **Full fit:** 1,000 WikiText prompts, Anthropic's `jlens` at commit 581d398. Launched detached on Modal
+  (app ap-duPL4moboS6ko65jXgBGx7), expected to take about 4 h.

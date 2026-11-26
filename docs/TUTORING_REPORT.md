@@ -401,6 +401,18 @@ On this CPU that's about 6 minutes per prompt (measured: 360 s and 316 s for the
    the `@app.function` decorator. `with_options` didn't change the GPU that Modal's billing check sees, so the script
    reads `NEURONLAB_GPU` when it is imported.
 6. The script `cloud/modal_jlens.py` is ready. It runs in chunks that save progress, and writes a `config.json` with full provenance.
+7. After a card was added, a new error appeared: `403 … no rule allows this host` for **`input-plane.us-east.modal.com`**.
+   Modal sends function calls to this second host. `MODAL_LOGLEVEL=DEBUG` named it. **Fix:** allow that exact host.
+8. **Measure first:** a 4-prompt run on an A10G took about 12.5 s/prompt. The first prompts' Jacobian norms (8.907, 8.926)
+   matched the CPU run exactly, a free cross-check that GPU and CPU compute the same thing.
+9. **Launch detached** so the job survives the session pausing:
+   ```bash
+   NEURONLAB_GPU=A10G modal run --detach cloud/modal_jlens.py --n-prompts 1000 --tag qwen3-0.6b-wikitext-n1000 --chunk 25 --dim-batch 32
+   ```
+   Estimate: about 1,000 × 15 s ≈ 4 h on an A10G, roughly $4–5. Download when done:
+   ```bash
+   modal volume get neuronlab-jlens qwen3-0.6b-wikitext-n1000 data/jlens/
+   ```
 
 ### Step 31. Running it on CPU instead (in progress)
 ```bash
@@ -408,8 +420,9 @@ python cloud/cpu_fit_jlens.py --n-prompts 200 --tag qwen3-0.6b-wikitext-cpu
 ```
 * It runs Anthropic's own `jlens.fit`, with the same recipe as the published lenses.
 * It checkpoints every 5 prompts, and rerunning the command resumes.
-* **Status at writing:** 2 of 200 prompts done, about 5–6 minutes each.
-* **Caveat:** the cloud container may be reclaimed during a long run.
+* **What happened:** the container was paused while the session was idle. The process died after 2 prompts, before
+  the first checkpoint at prompt 5. **Lesson:** long jobs don't belong in an interactive cloud container. Use a
+  detached cloud job (Step 30.9), or checkpoint after every unit of work.
 
 ---
 
