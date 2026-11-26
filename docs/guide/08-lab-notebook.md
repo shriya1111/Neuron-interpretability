@@ -74,7 +74,7 @@ contexts the model does know.
 * **CPU (4 cores, fp32):** 360 s and 316 s for the first two prompts. The run died when the idle container was paused
   (before its first checkpoint).
 * **Modal A10G (fp32, dim_batch 32):** 11–15 s per prompt.
-* **Cross-check:** the per-prompt Jacobian norms $\max_L \lVert J
+* **Cross-check:** the per-prompt Jacobian norms $\max_L \lVert J_L\rVert/\sqrt d$ for the same first prompts were **identical**
 Vert/\sqrt d$ for the same first prompts were **identical**
   on CPU and GPU (8.907, 8.926, …). That's evidence the fit is deterministic and hardware-independent.
 * **Full fit:** 1,000 WikiText prompts, Anthropic's `jlens` at commit 581d398. Launched detached on Modal
