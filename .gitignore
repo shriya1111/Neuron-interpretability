@@ -7,3 +7,4 @@ __pycache__/
 *.pt
 data/cache/
 .DS_Store
+data/jlens/
