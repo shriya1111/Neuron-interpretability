@@ -36,7 +36,7 @@ hf_vol = modal.Volume.from_name("neuronlab-hf-cache", create_if_missing=True)
 EXCLUDED = {"Books3", "BookCorpus2", "StackExchange", "OpenWebText2"}
 
 
-@app.function(image=image, gpu=GPU, volumes={"/out": out_vol, "/hf": hf_vol}, timeout=4 * 3600, memory=49152)
+@app.function(image=image, gpu=GPU, volumes={"/out": out_vol, "/hf": hf_vol}, timeout=4 * 3600, memory=49152, cpu=8.0)
 def scan(model_id: str, tag: str, k: int = 24, n_tokens: int = 256, batch: int = 16, n_ref_docs: int = 200,
          readout_k: int = 12, dtype: str = "float32", max_docs: int | None = None) -> dict:
     import numpy as np
@@ -122,6 +122,7 @@ def scan(model_id: str, tag: str, k: int = 24, n_tokens: int = 256, batch: int =
             is_pos0.append(p0[mask].cpu())
             for L in range(nL):
                 ref_acts[L].append(cap[("a", L)].float()[mask].cpu())
+            print(f"[atlas] reference batch done ({len(idx)} docs), {time.time() - t0:.0f}s", flush=True)
     is_pos0 = torch.cat(is_pos0)
     thr = {}
     for L in range(nL):
@@ -129,10 +130,12 @@ def scan(model_id: str, tag: str, k: int = 24, n_tokens: int = 256, batch: int =
         A0 = A[~is_pos0]
         kk = max(1, int(round(0.999 * A.shape[0])))
         kk0 = max(1, int(round(0.999 * A0.shape[0])))
+        torch.set_num_threads(8)
         thr[L] = {"pos": A.kthvalue(kk, 0).values, "neg": (-A).kthvalue(kk, 0).values,
                   "pos_nz": A0.kthvalue(kk0, 0).values, "neg_nz": (-A0).kthvalue(kk0, 0).values}
         ref_acts[L] = None
         del A, A0
+        print(f"[atlas] thresholds layer {L}, {time.time() - t0:.0f}s", flush=True)
     print(f"[atlas] thresholds from {len(ref)} reference docs, {time.time() - t0:.0f}s", flush=True)
 
     # ---- pass 2: top firings, counts, per-domain counts above threshold
