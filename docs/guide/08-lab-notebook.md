@@ -103,3 +103,36 @@ Vert/\sqrt d$ for the same first prompts were **identical**
   The largest changes are to tokens that were already very unlikely.
 * **Conclusion:** the readout is a hypothesis, not a classification. This neuron is not shown to "add John" in any
   context. This is the paper's own caution, and why the Atlas puts firings, readouts and a causal test side by side.
+
+---
+
+### 2026-11-26 — J-lens fitted for Qwen3-0.6B (1,000 prompts) and a first readout
+
+* **Fit:**
+  * code: Anthropic's `jlens` at commit 581d398;
+  * data: 1,000 WikiText-103 train prompts × 128 tokens;
+  * hardware: fp32 on a Modal A10G;
+  * time: 11,741 s (11.7 s/prompt).
+* **Convergence:** the relative change of the running mean per added prompt was about 0.2% at the end
+  (`max_d_mean` 1.7e-3 to 2.0e-3).
+* **Checks:**
+  * 27 source layers, each 1024×1024 and all finite;
+  * $\lVert J_L - I\rVert/\lVert I\rVert$ falls from 4.45 (L0) to 2.43 (L13) to 0.48 (L26), so late layers transport
+    the residual almost unchanged, as expected.
+* **Gospel prompt, last position, J-lens readout** (compare the logit-lens entry above):
+
+| Layer | J-lens top tokens | " John" rank |
+|---|---|---|
+| L6 | Apostle, ,”, apost | 213 |
+| L12 | Apostle, apost, 耶稣, Jesus, Christianity | 332 |
+| L18 | Jesus, Apostle, Muhammad | 48 |
+| L21 | Jesus, 耶稣, Matthew, Apostle | 8 |
+| L24 | Jesus, **John**, 耶稣, Paul | 2 |
+| L26 | **John**, Paul, Peter, Matthew, Jesus | 1 |
+
+The logit lens showed only function words (" of", ",", " and") before layer ~18. The J-lens surfaces the topic
+(apostle, Jesus, Christianity) from layer 6–12 on. That is the advantage the J-lens paper reports, and why the
+neuron-basis paper reads neurons with it.
+
+* **Stored:** `data/jlens/qwen3-0.6b-wikitext-n1000/` (not in git; `modal volume get neuronlab-jlens
+  qwen3-0.6b-wikitext-n1000/jacobian_lens.pt …` restores it).
