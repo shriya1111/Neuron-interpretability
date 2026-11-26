@@ -1,0 +1,62 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Instrument-style palette. Positive = warm, negative = cool, consistently. */
+:root {
+  --bg: #f7f7f5;
+  --panel: #ffffff;
+  --panel-2: #f0f0ec;
+  --border: #d9d9d3;
+  --fg: #1b1c1e;
+  --muted: #62646a;
+  --accent: #2557d6;
+  --pos: #c2410c;
+  --neg: #1d4ed8;
+  --ok: #15803d;
+  --warn: #b45309;
+  --bad: #b91c1c;
+}
+.dark {
+  --bg: #0e1013;
+  --panel: #15181c;
+  --panel-2: #1c2026;
+  --border: #2a2f37;
+  --fg: #e4e6ea;
+  --muted: #8c929c;
+  --accent: #6b93ff;
+  --pos: #fb923c;
+  --neg: #60a5fa;
+  --ok: #4ade80;
+  --warn: #fbbf24;
+  --bad: #f87171;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-panel: var(--panel);
+  --color-panel-2: var(--panel-2);
+  --color-line: var(--border);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-pos: var(--pos);
+  --color-neg: var(--neg);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-bad: var(--bad);
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+html, body { height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 13px;
+}
+.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+input, select, textarea { background: var(--panel-2); border: 1px solid var(--border); border-radius: 4px; padding: 3px 6px; color: var(--fg); }
+input:focus, select:focus, textarea:focus { outline: 1px solid var(--accent); }
+button { cursor: pointer; }
+button:disabled { opacity: .5; cursor: not-allowed; }

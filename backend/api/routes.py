@@ -1,0 +1,210 @@
+from __future__ import annotations
+
+import time
+
+import torch
+from fastapi import APIRouter, HTTPException
+
+from evaluation import metrics
+from instrumentation.activation_cache import CaptureSpec, run_attention, run_forward
+from instrumentation.compare import compare_runs
+from instrumentation.hooks import count_hooks, foreign_hooks
+from instrumentation.interventions import InterventionPlan, NeuronIntervention
+from instrumentation.neuron_inspector import inspect_neuron
+from models.architecture import describe
+from models.loader import manager, set_deterministic
+from models.registry import MODEL_PRESETS, list_paper_neurons
+from reproducibility import provenance
+
+from . import schemas
+
+router = APIRouter()
+
+
+def _handle():
+    try:
+        return manager.get()
+    except RuntimeError as e:
+        raise HTTPException(409, str(e))
+
+
+def _encode(h, req: schemas.PromptInput) -> torch.Tensor:
+    ids = h.tokenizer(req.prompt, add_special_tokens=req.add_special_tokens, return_tensors="pt").input_ids[0]
+    if ids.numel() == 0:
+        raise HTTPException(422, "prompt encodes to zero tokens")
+    return ids
+
+
+def _hooks_clean(h) -> int:
+    # Hooks are only ever registered while holding h.lock, so counting under the lock
+    # cannot observe another request's in-flight hooks.
+    with h.lock:
+        n = count_hooks(h.model)
+    if n:
+        raise HTTPException(500, f"{n} hooks still registered after operation — refusing to return results")
+    return n
+
+
+def _wrap(fn):
+    try:
+        return fn()
+    except HTTPException:
+        raise
+    except (ValueError, KeyError) as e:
+        raise HTTPException(422, str(e))
+
+
+@router.get("/health")
+def health():
+    out = {"ok": True, "model_loaded": manager.loaded, "cuda": torch.cuda.is_available()}
+    if manager.loaded:
+        m = manager.get().model
+        out["neuronlab_hooks_attached"] = count_hooks(m)
+        out["foreign_hooks"] = foreign_hooks(m)
+    return out
+
+
+@router.get("/models/presets")
+def presets():
+    return {"presets": MODEL_PRESETS, "paper_neurons": list_paper_neurons()}
+
+
+@router.post("/models/load")
+def load(req: schemas.LoadRequest):
+    try:
+        h = manager.load(req.model_id, device=req.device, dtype=req.dtype, revision=req.revision, seed=req.seed)
+    except Exception as e:  # surface HF auth / unsupported-arch errors verbatim
+        raise HTTPException(400, f"{type(e).__name__}: {e}")
+    return {"loaded": True, "load_seconds": h.load_seconds, "provenance": provenance(h),
+            "architecture": describe(h.adapter)}
+
+
+@router.get("/models/config")
+def config():
+    h = _handle()
+    return {"provenance": provenance(h), "architecture": describe(h.adapter),
+            "hf_config": h.model.config.to_dict()}
+
+
+@router.post("/inference")
+def inference(req: schemas.InferenceRequest):
+    h = _handle()
+
+    def go():
+        ids = _encode(h, req)
+        spec = CaptureSpec(points=("resid_pre", "attn_out", "gate_pre", "act", "mlp_out", "resid_post")) \
+            if req.layer_summary else None
+        res = run_forward(h, ids, spec)
+        T = ids.numel()
+        t = req.position + T if req.position < 0 else req.position
+        if not 0 <= t < T:
+            raise ValueError(f"position {req.position} out of range for {T} tokens")
+        out = {
+            "tokens": metrics.tokens_of(h.tokenizer, ids),
+            "position": t,
+            "top_k": metrics.top_k(h.tokenizer, res.logits[t], req.top_k),
+            "forward_seconds": res.seconds,
+        }
+        if req.layer_summary:
+            layers = []
+            for L in range(h.adapter.n_layers):
+                act = res.get("act", L)
+                gate = res.get("gate_pre", L)
+                top = act[t].abs().topk(min(req.top_neurons_per_layer, act.shape[1])) if req.top_neurons_per_layer else None
+                layers.append({
+                    "layer": L,
+                    "resid_pre_norm": res.get("resid_pre", L).norm(dim=-1).tolist(),
+                    "attn_out_norm": res.get("attn_out", L).norm(dim=-1).tolist(),
+                    "mlp_out_norm": res.get("mlp_out", L).norm(dim=-1).tolist(),
+                    "resid_post_norm": res.get("resid_post", L).norm(dim=-1).tolist(),
+                    "gate_open_frac": (gate > 0).float().mean(-1).tolist(),
+                    "act_abs_max": act.abs().max(-1).values.tolist(),
+                    "top_neurons_at_position": [] if top is None else
+                        [{"neuron": int(i), "activation": float(act[t, i])} for i in top.indices],
+                })
+            out["layers"] = layers
+        if req.attention_layer is not None:
+            att = run_attention(h, ids, req.attention_layer)
+            out["attention"] = {"layer": req.attention_layer, "shape": list(att.shape),
+                                "note": "softmax attention probabilities from an eager forward pass",
+                                "pattern": att.tolist()}
+        _hooks_clean(h)
+        out["provenance"] = provenance(h, prompt=req.prompt, input_ids=ids, params=req.model_dump(exclude={"prompt"}))
+        return out
+
+    return _wrap(go)
+
+
+@router.post("/activations/capture")
+def capture(req: schemas.CaptureRequest):
+    h = _handle()
+
+    def go():
+        h.adapter.check_layer(req.layer)
+        ids = _encode(h, req)
+        res = run_forward(h, ids, CaptureSpec(layers=[req.layer], points=("act", "gate_pre", "up"), final=False))
+        m = res.get(req.point, req.layer)  # [T, d_mlp]
+        d = m.shape[1]
+        col_max = m.abs().max(0).values
+        if req.order == "max_abs":
+            idx = col_max.topk(min(req.neuron_count, d)).indices
+        else:
+            if not 0 <= req.neuron_start < d:
+                raise ValueError(f"neuron_start must be in [0, {d - 1}]")
+            idx = torch.arange(req.neuron_start, min(req.neuron_start + req.neuron_count, d))
+        _hooks_clean(h)
+        return {
+            "layer": req.layer, "point": req.point, "shape_full": list(m.shape),
+            "tokens": metrics.tokens_of(h.tokenizer, ids),
+            "neurons": idx.tolist(),
+            "values": m[:, idx].tolist(),  # [T, len(neurons)]
+            "gate_open": (res.get("gate_pre", req.layer)[:, idx] > 0).tolist(),
+            "layer_col_max_abs": col_max.tolist(),  # [d_mlp] overview strip
+            "provenance": provenance(h, prompt=req.prompt, input_ids=ids, params=req.model_dump(exclude={"prompt"})),
+        }
+
+    return _wrap(go)
+
+
+@router.post("/neurons/inspect")
+def inspect(req: schemas.InspectRequest):
+    h = _handle()
+
+    def go():
+        ids = _encode(h, req)
+        out = inspect_neuron(h, ids, req.layer, req.neuron, req.position, req.top_n, req.include_weights)
+        out["tokens"] = metrics.tokens_of(h.tokenizer, ids)
+        _hooks_clean(h)
+        out["provenance"] = provenance(h, prompt=req.prompt, input_ids=ids, params=req.model_dump(exclude={"prompt"}))
+        return out
+
+    return _wrap(go)
+
+
+def _single_token(h, s: str) -> int:
+    ids = h.tokenizer.encode(s, add_special_tokens=False)
+    if len(ids) != 1:
+        pieces = [h.tokenizer.decode([i]) for i in ids]
+        raise ValueError(f"target {s!r} is {len(ids)} tokens {pieces}; give a single-token string "
+                         f"(mind the leading space)")
+    return ids[0]
+
+
+@router.post("/interventions/run")
+def interventions(req: schemas.InterventionRequest):
+    h = _handle()
+
+    def go():
+        set_deterministic(req.seed)
+        ids = _encode(h, req)
+        plan = InterventionPlan([NeuronIntervention(**iv.model_dump()) for iv in req.interventions])
+        targets = [_single_token(h, s) for s in req.target_tokens]
+        t0 = time.time()
+        out = compare_runs(h, ids, plan, req.position, req.top_k, targets)
+        out["runtime_seconds"] = round(time.time() - t0, 4)
+        out["hooks_remaining"] = _hooks_clean(h)
+        out["provenance"] = provenance(h, prompt=req.prompt, input_ids=ids, seed=req.seed,
+                                       params=req.model_dump(exclude={"prompt"}))
+        return out
+
+    return _wrap(go)

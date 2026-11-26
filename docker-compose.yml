@@ -1,0 +1,29 @@
+# Local all-in-one. For a remote GPU, run only the backend service there and point the
+# frontend at it (header bar → backend URL, or NEXT_PUBLIC_BACKEND_URL at build time).
+services:
+  backend:
+    build: ./backend
+    ports: ["8000:8000"]
+    environment:
+      - HF_TOKEN=${HF_TOKEN:-}
+      - NEURONLAB_PRELOAD=${NEURONLAB_PRELOAD:-Qwen/Qwen2.5-0.5B}
+      - NEURONLAB_CORS_ORIGINS=${NEURONLAB_CORS_ORIGINS:-http://localhost:3000}
+    volumes:
+      - hf-cache:/root/.cache/huggingface
+    # Remove this block to run on CPU.
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_BACKEND_URL: ${NEXT_PUBLIC_BACKEND_URL:-http://localhost:8000}
+    ports: ["3000:3000"]
+    depends_on: [backend]
+volumes:
+  hf-cache:
