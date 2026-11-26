@@ -18,6 +18,8 @@ It is updated with every phase; see the [changelog](#changelog) at the bottom.
 | 6 | [Features and API](06-features.md) | Every page of the app and every backend endpoint |
 | 7 | [Testing and verification](07-testing.md) | How to run the tests, what each one proves, and how to check results yourself |
 | 8 | [Lab notebook](08-lab-notebook.md) | Dated findings from real runs, including ones that disagree with the paper |
+| 9 | [Weight editing](09-weight-editing.md) | Pruning and rewriting neurons for real: exact undo, comparison with the original, held-out perplexity, export |
+| 10 | [Neuron Atlas](10-atlas.md) | The per-neuron catalog: corpus scan, firings, readouts, search, and one-click causal tests |
 
 ## Notation used throughout
 
@@ -51,3 +53,4 @@ It is updated with every phase; see the [changelog](#changelog) at the bottom.
 |---|---|---|
 | 2026-11-26 | 1 | Chapters 1–3, 6, 7: architecture, neuron maths, interventions, microscope and explorer, tests |
 | 2026-11-26 | 2 | Switched primary model to Qwen3-0.6B. Added chapters 4 (logit lens), 5 (Type 1 experiment) and 8 (lab notebook); updated 3, 6 and 7 |
+| 2026-11-26 | Atlas + editor | Added chapters 9 (weight editing) and 10 (Neuron Atlas) |

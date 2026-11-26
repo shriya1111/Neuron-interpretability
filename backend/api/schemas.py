@@ -14,7 +14,8 @@ class LoadRequest(BaseModel):
 
 
 class PromptInput(BaseModel):
-    prompt: str = Field(..., min_length=1)
+    prompt: str = Field("", description="text prompt (ignored when token_ids is given)")
+    token_ids: list[int] | None = Field(None, description="exact token ids, e.g. an Atlas firing context")
     add_special_tokens: bool = True
 
 
@@ -97,3 +98,32 @@ class Type1CandidatesRequest(BaseModel):
     contexts: list[ContextIn] = Field(..., min_length=2)
     sign: Literal["+", "-"] | None = None
     top: int = Field(25, ge=1, le=200)
+
+
+class WeightEditRequest(BaseModel):
+    kind: Literal["prune", "scale_output", "scale_input", "set_output", "add_direction"]
+    layer: int
+    neurons: list[int] = Field(..., min_length=1)
+    params: dict = Field(default_factory=dict, description=(
+        "scale_output/scale_input: {factor, which:[gate,up]}; set_output: {vector}; "
+        "add_direction: {alpha, alpha_relative_to_norm, direction:{source:'token'|'neuron'|'vector', token|layer,neuron|vector}}"))
+
+
+class WeightRevertRequest(BaseModel):
+    edit_id: int | None = None
+    all: bool = False
+
+
+class ComparePrompt(BaseModel):
+    prompt: str = Field(..., min_length=1)
+    targets: list[str] = Field(default_factory=list)
+
+
+class WeightCompareRequest(BaseModel):
+    prompts: list[ComparePrompt] = Field(default_factory=list)
+    top_k: int = Field(10, ge=1, le=100)
+    n_heldout: int = Field(0, ge=0, le=40)
+
+
+class WeightExportRequest(BaseModel):
+    name: str = Field(..., pattern=r"^[A-Za-z0-9_.-]{1,64}$")

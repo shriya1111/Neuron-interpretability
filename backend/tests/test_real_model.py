@@ -108,3 +108,28 @@ def test_phase2_api(real):
     assert all(len(x["controls"]["delta_logprob"]) == 3 for x in b["contexts"]) and b["hooks_remaining"] == 0
     r = c.post("/experiments/polysemanticity", json={"layer": 1, "neuron": 1, "sign": "+", "contexts": ctx[:1]})
     assert r.status_code == 422
+
+
+def test_weight_edit_api(real):
+    from main import app
+    from models.loader import manager
+    manager.set(real)
+    c = TestClient(app)
+    p = "The fourth Gospel was written by the apostle"
+    ids = real.tokenizer(p, return_tensors="pt").input_ids[0]
+    base = run_plain(real, ids)
+    r = c.post("/weights/edit", json={"kind": "prune", "layer": 27, "neurons": [81]})
+    assert r.status_code == 200, r.text
+    r = c.post("/inference", json={"prompt": p, "layer_summary": False})
+    prov = r.json()["provenance"]
+    assert prov["weights_modified"] and prov["weight_edits"][0]["kind"] == "prune"
+    r = c.post("/weights/compare", json={"prompts": [{"prompt": p, "targets": [" John"]}], "n_heldout": 2})
+    assert r.status_code == 200, r.text
+    b = r.json()
+    t = b["prompts"][0]["comparison"]["targets"][0]
+    assert t["base"]["prob"] != t["mod"]["prob"]
+    assert b["heldout"]["n_texts"] == 2 and b["heldout"]["original"]["tokens"] > 0
+    r = c.post("/weights/revert", json={"all": True})
+    assert r.status_code == 200 and r.json()["reverted"] == 1
+    assert torch.equal(run_plain(real, ids), base)
+    assert c.get("/weights/edits").json()["modified"] is False

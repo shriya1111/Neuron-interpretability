@@ -16,6 +16,10 @@ result differ from the paper's, so that nothing is mislabelled as a reproduction
 * **Type 1 statistics.** The paper defines Type 1 (zeroing lowers the concept's probability) but gives no separate
   statistical test. NeuronLab borrows Appendix B check 2's thresholds (≥ 0.03 nats and z ≤ −3 against matched random
   directions). This is our choice, stated in every result.
+* **Weight edits are in memory and global.** While edits are active, every page reflects the edited model
+  (shown by the red banner and the provenance). Reloading the model discards them; revert or export first.
+* **Atlas coverage.** The Atlas uses 7,070 Pile-10k documents × 256 tokens (about 1.8M tokens), far fewer than
+  neuron-lens.com's 15M. Rare behaviours may be missing from "fires on". Readouts are logit-lens only until the J-lens is added.
 * **Attention heads** can be selected and their real attention probabilities shown, but there are
   no head-level interventions yet.
 * **Precision.** CPU runs use float32, so reconstruction errors are about 1e-7 relative. On GPU in bf16

@@ -2,16 +2,18 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ReactNode, useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { call } from "@/lib/api";
 import { useLab } from "@/lib/state";
 
 // status: built | partial | planned (badge shows the phase that completes it)
 export const NAV = [
+  { href: "/atlas", label: "Neuron Atlas", phase: 8, status: "built" },
   { href: "/explorer", label: "Model Explorer", phase: 1, status: "built" },
   { href: "/microscope", label: "Neuron Microscope", phase: 1, status: "built" },
   { href: "/lenses", label: "Vocabulary Lenses", phase: 3, status: "partial" },
   { href: "/polysemanticity", label: "Polysemanticity Lab", phase: 4, status: "partial" },
+  { href: "/weights", label: "Weight Editor", phase: 8, status: "built" },
   { href: "/steering", label: "Cross-Layer Steering", phase: 5, status: "planned" },
   { href: "/recall", label: "Factual Recall Lab", phase: 6, status: "planned" },
   { href: "/custom", label: "Custom Experiments", phase: 7, status: "planned" },
@@ -24,11 +26,22 @@ export function Shell({ children }: { children: ReactNode }) {
   const [editing, setEditing] = useState(false);
   const [url, setUrl] = useState(backend);
   const [health, setHealth] = useState<string | null>(null);
+  const [nEdits, setNEdits] = useState(0);
+
+  useEffect(() => {
+    const check = () => call<{ edits: unknown[] }>(backend, "/weights/edits").then((r) => setNEdits(r.edits.length)).catch(() => setNEdits(0));
+    check();
+    window.addEventListener("nl-weights-changed", check);
+    return () => window.removeEventListener("nl-weights-changed", check);
+  }, [backend, path, prov]);
 
   return (
     <div className="h-screen flex flex-col">
       <header className="flex items-center gap-3 px-3 h-9 border-b border-line bg-panel shrink-0">
         <span className="font-semibold tracking-tight">NeuronLab</span>
+        {nEdits > 0 && <Link href="/weights" className="text-[11px] font-semibold px-2 rounded bg-bad text-white"
+          title="The loaded model's weights are edited. Every result reflects the edited model until you revert.">
+          WEIGHTS MODIFIED · {nEdits} edit{nEdits > 1 ? "s" : ""}</Link>}
         <span className="text-muted text-[11px] num">
           {prov ? `${prov.model_id} · ${prov.dtype} · ${prov.device} · rev ${String(prov.model_revision ?? "?").slice(0, 8)}` : "no model loaded"}
         </span>

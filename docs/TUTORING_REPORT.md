@@ -435,7 +435,56 @@ python cloud/cpu_fit_jlens.py --n-prompts 200 --tag qwen3-0.6b-wikitext-cpu
 
 ---
 
-## Part I — Habits that made this work
+## Part I — Neuron Atlas and weight editor
+
+### Step 32. Study a reference design, then decide what to keep and what to change
+**Do.** Render the reference site (neuron-lens.com) in a headless browser. It's a JavaScript app, so plain `curl`
+only returns a shell page. Record which data hosts it loads (`data.neuron-lens.com` had to be allowed too), and
+read its methods page.
+
+**Kept:**
+* one URL per neuron;
+* a whole-model pixel overview;
+* separate + and − cards with "fires on" and "writes";
+* search and keyboard shortcuts.
+
+**Changed:**
+* no LLM-written labels presented as evidence;
+* the paper's corpus and thresholds;
+* the J-lens instead of their R/S-lens;
+* causal "test it" buttons and real weight editing.
+
+### Step 33. Weight editing that can never be silent
+* **Design rule:** an edit stores the exact original slices before touching anything; revert writes them back
+  (bit-identical); failures roll back.
+* `original_weights()` swaps the originals in temporarily, so edited and original can be compared on the same inputs.
+* Every response's provenance lists active edits, and the UI shows a red **WEIGHTS MODIFIED** banner.
+* **Test each edit against an independent mechanism:** prune == activation zero-ablation, scale_output == activation
+  scale, scaling the up row == activation scale (because $a$ is linear in $u$).
+
+### Step 34. Corpus scan on Modal, with a smoke test first
+1. Write the scan (`cloud/modal_atlas.py`):
+   * corpus: Pile-10k minus 4 subsets;
+   * thresholds from 200 random docs;
+   * top-24 open-gate firings per sign;
+   * per-domain counts;
+   * logit-lens readouts.
+2. **Smoke test** with `--max-docs 48 --n-ref-docs 16` (about a minute) before the full run.
+3. **Pitfall:** downloading from a Modal volume needed a third host, `clobber.modal-storage.com` (the proxy's
+   `[agent-proxy]` lines named it).
+4. **Verify** by recomputing recorded top firings locally, one document at a time: they matched to 6e-6.
+5. **Check against the paper:** after filtering, exactly **7,070** documents remained, the paper's count.
+6. Full run: `python cloud/modal_atlas.py spawn --tag qwen3-0.6b-pile10k`, then `modal volume get neuronlab-atlas qwen3-0.6b-pile10k data/atlas/`.
+
+**Memory pitfall caught in review:** the first version kept two copies of the reference activations
+(~35 GB). It was fixed by keeping one copy and a position-0 mask.
+
+### Step 35. Atlas UI
+* One catch-all route, `app/atlas/[[...slug]]/page.tsx`, parses `/atlas/<model>/L<l>/n<n>`.
+* The overview is a single `<canvas>`: 86k pixels are too many for DOM elements.
+* "Test it" sends the firing context as **exact token ids** (the API now accepts `token_ids`), so the test runs in precisely the context where the neuron fired.
+
+## Part J — Habits that made this work
 
 1. **Read the source, not the docs.** The MLP input and the hook points came from `inspect.getsource`.
 2. **Write tests from the maths.** Then test the same thing in two independent ways (hook vs. weight edit, ablation vs. vector add).

@@ -29,6 +29,13 @@ def _handle():
 
 
 def _encode(h, req: schemas.PromptInput) -> torch.Tensor:
+    if req.token_ids:
+        V = h.adapter.vocab_size
+        if any(not 0 <= t < V for t in req.token_ids):
+            raise HTTPException(422, f"token ids must be in [0, {V - 1}]")
+        return torch.tensor(req.token_ids, dtype=torch.long)
+    if not req.prompt:
+        raise HTTPException(422, "give a prompt or token_ids")
     ids = h.tokenizer(req.prompt, add_special_tokens=req.add_special_tokens, return_tensors="pt").input_ids[0]
     if ids.numel() == 0:
         raise HTTPException(422, "prompt encodes to zero tokens")
@@ -281,3 +288,123 @@ def exp_type1_candidates(req: schemas.Type1CandidatesRequest):
         return out
 
     return _wrap(go)
+
+
+# ---------------------------------------------------------------- weight editing (persistent until reverted)
+
+from evaluation.weight_compare import compare as weights_compare  # noqa: E402
+from instrumentation.weight_edits import get_editor  # noqa: E402
+
+
+@router.get("/weights/edits")
+def weights_edits():
+    h = _handle()
+    return {"modified": get_editor(h).modified, "edits": get_editor(h).summary()}
+
+
+@router.post("/weights/edit")
+def weights_edit(req: schemas.WeightEditRequest):
+    h = _handle()
+    return _wrap(lambda: {"applied": get_editor(h).apply(req.kind, req.layer, req.neurons, req.params).summary(),
+                          "edits": get_editor(h).summary()})
+
+
+@router.post("/weights/revert")
+def weights_revert(req: schemas.WeightRevertRequest):
+    h = _handle()
+
+    def go():
+        ed = get_editor(h)
+        if req.all:
+            return {"reverted": ed.revert_all(), "edits": ed.summary()}
+        if req.edit_id is None:
+            raise ValueError("give edit_id or all=true")
+        return {"reverted": ed.revert(req.edit_id).summary(), "edits": ed.summary()}
+
+    return _wrap(go)
+
+
+@router.post("/weights/compare")
+def weights_compare_route(req: schemas.WeightCompareRequest):
+    h = _handle()
+
+    def go():
+        out = weights_compare(h, [p.model_dump() for p in req.prompts], req.top_k, req.n_heldout)
+        _hooks_clean(h)
+        out["provenance"] = provenance(h, params=req.model_dump())
+        return out
+
+    return _wrap(go)
+
+
+@router.post("/weights/export")
+def weights_export(req: schemas.WeightExportRequest):
+    import json
+    import os
+    h = _handle()
+
+    def go():
+        ed = get_editor(h)
+        if not ed.modified:
+            raise ValueError("no active edits; nothing to export")
+        root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "data", "edited_models", req.name))
+        if os.path.exists(root):
+            raise ValueError(f"{root} already exists")
+        with h.lock:
+            h.model.save_pretrained(root)
+            h.tokenizer.save_pretrained(root)
+        with open(os.path.join(root, "neuronlab_edits.json"), "w") as f:
+            json.dump({"base_model": h.model_id, "base_revision": h.revision, "edits": ed.summary()}, f, indent=2)
+        return {"path": root, "edits": ed.summary()}
+
+    return _wrap(go)
+
+
+# ---------------------------------------------------------------- atlas (precomputed corpus scan)
+
+from interpretability import atlas as atlas_mod  # noqa: E402
+
+
+def _atlas(tag: str | None):
+    h = _handle()
+    try:
+        st = atlas_mod.get_store(tag)
+    except FileNotFoundError as e:
+        raise HTTPException(404, str(e))
+    if st.meta.get("model_id") != h.model_id:
+        raise HTTPException(409, f"atlas was computed for {st.meta.get('model_id')}, but {h.model_id} is loaded; "
+                                 f"neuron IDs do not transfer between checkpoints")
+    return h, st
+
+
+@router.get("/atlas/list")
+def atlas_list():
+    return {"atlases": atlas_mod.list_atlases()}
+
+
+@router.get("/atlas/overview")
+def atlas_overview(tag: str | None = None):
+    _, st = _atlas(tag)
+    return st.overview()
+
+
+@router.get("/atlas/layer/{layer}")
+def atlas_layer(layer: int, sort: str = "max_abs", offset: int = 0, limit: int = 100, tag: str | None = None):
+    h, st = _atlas(tag)
+    return _wrap(lambda: st.layer_table(h.tokenizer, layer, sort, offset, min(limit, 500)))
+
+
+@router.get("/atlas/neuron/{layer}/{neuron}")
+def atlas_neuron(layer: int, neuron: int, tag: str | None = None):
+    h, st = _atlas(tag)
+    return _wrap(lambda: st.neuron(h.tokenizer, layer, neuron))
+
+
+@router.get("/atlas/search")
+def atlas_search(q: str, tag: str | None = None):
+    import re
+    h, st = _atlas(tag)
+    m = re.fullmatch(r"\s*L?\s*(\d+)\s*[·./ ]?\s*n?\s*(\d+)\s*", q, re.I)
+    if m and q.strip()[:1].upper() == "L":
+        return {"kind": "id", "results": [{"layer": int(m.group(1)), "neuron": int(m.group(2))}]}
+    return _wrap(lambda: {"kind": "word", "results": st.search_word(h.tokenizer, q)})

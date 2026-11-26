@@ -27,8 +27,12 @@ def code_version() -> dict:
 
 def provenance(handle, *, prompt: str | None = None, input_ids=None, seed: int | None = None,
                params: dict | None = None, mode: str = "exploratory") -> dict:
+    editor = getattr(handle, "_weight_editor", None)
+    edits = editor.summary() if editor is not None else []
     return {
         **handle.provenance(),
+        "weights_modified": bool(edits),
+        "weight_edits": edits,
         "code_version": code_version(),
         "mode": mode,
         "input_text": prompt,

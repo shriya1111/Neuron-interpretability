@@ -21,6 +21,7 @@ features and tests, plus a lab notebook of findings.
 | Doc | Contents |
 |---|---|
 | [`docs/guide/`](docs/guide/README.md) | **Guide**: architecture, neuron maths, interventions, lenses, experiments, features, testing, lab notebook |
+| [`docs/guide/10-atlas.md`](docs/guide/10-atlas.md), [`09-weight-editing.md`](docs/guide/09-weight-editing.md) | **Neuron Atlas** (per-neuron pages) and **Weight Editor** (prune/rewrite neurons, exact undo) |
 | [`docs/TUTORING_REPORT.md`](docs/TUTORING_REPORT.md) | **Tutoring report**: step-by-step account of how the project was built, with commands, checks and pitfalls |
 | [`docs/PLAN.md`](docs/PLAN.md) | Technical plan, with every implementation-relevant detail from the paper and Appendices A–D |
 | [`docs/TEST_RESULTS.md`](docs/TEST_RESULTS.md) | Automated correctness test results per phase |
