@@ -9,10 +9,11 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 
 MODEL_PRESETS = {
-    "Qwen/Qwen2.5-0.5B": {"mode": "development", "notes": "Default dev model. Tied embeddings."},
-    "Qwen/Qwen3-0.6B": {"mode": "development", "notes": "Dev model. Tied embeddings, q/k norm."},
+    "Qwen/Qwen3-0.6B": {"mode": "primary", "notes": "Primary research model (paper methods, different model). "
+                        "Same family as the paper's Qwen3-8B/14B. 28 layers x 3072 neurons. Tied embeddings, q/k norm."},
+    "Qwen/Qwen2.5-0.5B": {"mode": "cross_check", "notes": "Second small model to check findings are not one-model quirks. Base model."},
     "meta-llama/Llama-3.1-8B-Instruct": {
-        "mode": "paper_reproduction",
+        "mode": "paper_reproduction (optional, needs GPU)",
         "notes": "Paper's model. Gated: needs an HF token with the Llama 3.1 license accepted. ~16 GB in bf16.",
     },
     "Qwen/Qwen3-8B": {"mode": "paper_reproduction", "notes": "Also studied in the paper (later phase)."},

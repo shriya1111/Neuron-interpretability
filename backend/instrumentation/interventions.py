@@ -78,8 +78,44 @@ def apply_op(a: torch.Tensor, iv: NeuronIntervention, seq_len: int) -> torch.Ten
 
 
 @dataclass
+class VectorAdd:
+    """Add coeff[t] * vector to the output of a site at layer L, for positions t.
+
+    site="mlp_out":   added to the MLP output of layer L (same place a neuron writes a*w).
+    site="resid_post": added to the residual stream after block L (used for steering).
+    ``coeffs`` is either one float for all selected positions, or one per selected position.
+    """
+    layer: int
+    vector: list[float] | torch.Tensor
+    site: Literal["mlp_out", "resid_post"] = "mlp_out"
+    positions: list[int] | None = None
+    coeffs: float | list[float] = 1.0
+    label: str = ""
+
+    def to_dict(self) -> dict:
+        v = self.vector.tolist() if isinstance(self.vector, torch.Tensor) else self.vector
+        return {"layer": self.layer, "site": self.site, "positions": self.positions, "label": self.label,
+                "vector_norm": float(torch.as_tensor(v).float().norm()), "coeffs": self.coeffs}
+
+    def delta(self, seq_len: int, d_model: int, dtype, device) -> torch.Tensor:
+        v = torch.as_tensor(self.vector, dtype=torch.float32)
+        if v.shape != (d_model,):
+            raise ValueError(f"vector must have shape [{d_model}], got {list(v.shape)}")
+        pos = resolve_positions(self.positions, seq_len)
+        c = torch.as_tensor(self.coeffs, dtype=torch.float32)
+        if c.dim() == 0:
+            c = c.expand(len(pos))
+        if c.numel() != len(pos):
+            raise ValueError(f"{c.numel()} coeffs for {len(pos)} positions")
+        d = torch.zeros(seq_len, d_model, dtype=torch.float32)
+        d[pos] = c.view(-1, 1) * v.view(1, -1)
+        return d.to(device=device, dtype=dtype)
+
+
+@dataclass
 class InterventionPlan:
     neuron_interventions: list[NeuronIntervention] = field(default_factory=list)
+    vector_adds: list[VectorAdd] = field(default_factory=list)
 
     def by_layer(self) -> dict[int, list[NeuronIntervention]]:
         d: dict[int, list[NeuronIntervention]] = {}
@@ -88,4 +124,4 @@ class InterventionPlan:
         return d
 
     def __bool__(self) -> bool:
-        return bool(self.neuron_interventions)
+        return bool(self.neuron_interventions or self.vector_adds)

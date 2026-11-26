@@ -5,12 +5,22 @@ An interactive research instrument for reproducing, testing and extending
 (Anthropic, 2026). Every number shown comes from a real forward pass of a real model. There are
 no mock activations and no hard-coded probabilities.
 
-**Status: Phase 1 of 7 (neuron microscope) is built and tested.** The paper experiments
-(logit lens / J-lens / J-share, polysemanticity, cross-layer steering, factual recall) are
-planned in [`docs/PLAN.md`](docs/PLAN.md) and appear in the UI as clearly marked "not implemented" pages.
+**Primary model: `Qwen/Qwen3-0.6B`** (same family as the paper's Qwen3-8B/14B), with `Qwen/Qwen2.5-0.5B` as a
+cross-check. Results are therefore *replications of the paper's methods on smaller models*, not reproductions of its
+numbers. Llama-3.1-8B-Instruct remains supported if a GPU becomes available.
+
+**Status:**
+* Phases 1–2 are built and tested: neuron microscope, logit lens, neuron search, and the Type 1 polysemanticity
+  experiment with matched random controls.
+* The J-lens/J-share, Types 2/3, cross-layer steering and factual recall are planned in [`docs/PLAN.md`](docs/PLAN.md),
+  and appear in the UI as clearly marked pages.
+
+**Start with the guide: [`docs/guide/`](docs/guide/README.md)**, a running explanation of the maths, layers,
+features and tests, plus a lab notebook of findings.
 
 | Doc | Contents |
 |---|---|
+| [`docs/guide/`](docs/guide/README.md) | **Guide**: architecture, neuron maths, interventions, lenses, experiments, features, testing, lab notebook |
 | [`docs/PLAN.md`](docs/PLAN.md) | Technical plan, with every implementation-relevant detail from the paper and Appendices A–D |
 | [`docs/TEST_RESULTS.md`](docs/TEST_RESULTS.md) | Automated correctness test results per phase |
 | [`docs/LIMITATIONS.md`](docs/LIMITATIONS.md) | Differences from the paper, approximations, open issues |
@@ -54,7 +64,7 @@ pip install -r backend/requirements.txt
 ```
 
 ```bash
-cd backend && NEURONLAB_PRELOAD=Qwen/Qwen2.5-0.5B uvicorn main:app --host 0.0.0.0 --port 8000
+cd backend && NEURONLAB_PRELOAD=Qwen/Qwen3-0.6B uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
 Environment variables:
@@ -86,7 +96,8 @@ on the backend.
 cd backend && pytest -v
 ```
 
-The tests use tiny random Llama/Qwen2/Qwen3 models, plus the real Qwen2.5-0.5B when it is cached.
+The tests use tiny random Llama/Qwen2/Qwen3 models, plus the real Qwen3-0.6B when it is cached
+(`NEURONLAB_TEST_MODEL=Qwen/Qwen2.5-0.5B` selects the cross-check model).
 
 ### Docker
 
@@ -107,21 +118,21 @@ The Dockerfiles have not yet been built in CI. The development container had no 
 
 | Mode | Model | Memory (weights) | Hardware |
 |---|---|---|---|
-| Development | Qwen2.5-0.5B (default), Qwen3-0.6B | ~2 GB fp32 | CPU fine (~0.3 s per forward pass on 4 cores) |
-| Paper reproduction | meta-llama/Llama-3.1-8B-Instruct | ~16 GB bf16 | GPU ≥ 24 GB (L4, A10, 4090); 40–80 GB for gradient-heavy phases |
-| Later | Qwen3-8B | ~16 GB bf16 | same |
+| **Primary** | Qwen3-0.6B | ~2.4 GB fp32 | CPU (forward pass < 1 s on 4 cores) |
+| Cross-check | Qwen2.5-0.5B | ~2 GB fp32 | CPU |
+| Optional, paper's model | meta-llama/Llama-3.1-8B-Instruct | ~16 GB bf16 | GPU ≥ 24 GB |
 
-* **J-lens:** pre-fitted lenses exist for Llama-3.1-8B-Instruct and Qwen3-8B
-  (`neuronpedia/jacobian-lens`, ~1 GB each), so a fresh calibration is optional.
-* **Own calibration:** costs one forward pass plus `d_model / 128` backward passes per prompt.
-  For Llama-8B with 1,000 × 128-token prompts, that's several GPU-hours on an A100/H100.
+* **J-lens:** no published lens exists for Qwen3-0.6B or Qwen2.5-0.5B, so NeuronLab will fit its own (Phase 3).
+  Measured cost on this 4-core CPU, unbatched: about 4–7 minutes per 128-token prompt. Batching will reduce that.
+  About 100–200 prompts fit in a few CPU hours, or 1,000 prompts in under an hour on a free Kaggle/Colab GPU.
+* **Published lenses:** Llama-3.1-8B-Instruct and Qwen3-8B have them (`neuronpedia/jacobian-lens`).
 
 Supported architectures: Llama, Qwen2/2.5, Qwen3 (dense), Mistral, meaning any SwiGLU decoder whose
 MLP is `down(silu(gate(x)) * up(x))`. The activation function is verified numerically at load time.
 
 ## How to reproduce the paper
 
-This becomes runnable in Phases 2–6; see `docs/PLAN.md` §2. Paper neuron IDs (e.g. Llama L28 n2760,
+Phase 2 provides the logit lens and the Type 1 experiment; Phases 3–6 add the rest (see `docs/PLAN.md` §2). Paper neuron IDs (e.g. Llama L28 n2760,
 L20 n2287) are stored in `backend/models/registry.py`, and the backend refuses to use them with any other
 checkpoint. A result is labelled a reproduction only when the checkpoint, dataset and sample sizes match
 the paper. Everything else is labelled `exploratory`.

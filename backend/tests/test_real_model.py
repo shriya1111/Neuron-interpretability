@@ -76,3 +76,35 @@ def test_api_concurrent_requests(real):
         codes = list(ex.map(lambda r: c.post(r[0], json=r[1]).status_code, reqs))
     assert codes == [200] * len(reqs), codes
     assert count_hooks(real.model) == 0
+
+
+def test_phase2_api(real):
+    from main import app
+    from models.loader import manager
+    manager.set(real)
+    c = TestClient(app)
+    r = c.post("/lens/logit", json={"kind": "neuron", "layer": 5, "neuron": 3, "target_tokens": [" John"]})
+    assert r.status_code == 200, r.text
+    b = r.json()
+    assert b["plus"]["targets"][0]["score"] == -b["minus"]["targets"][0]["score"]
+    r = c.post("/lens/logit", json={"kind": "residual", "prompt": "The fourth Gospel was written by the apostle",
+                                    "target_tokens": [" John"]})
+    assert r.status_code == 200, r.text
+    b = r.json()
+    assert b["last_layer_matches_model_max_abs_logit_error"] < 1e-3
+    assert len(b["layers"]) == real.adapter.n_layers + 1
+    r = c.post("/lens/neuron-search", json={"target": " John", "sign": "+", "top": 5})
+    assert r.status_code == 200 and len(r.json()["candidates"]) == 5
+    ctx = [{"label": "a", "prompt": "The fourth Gospel was written by the apostle", "target": " John"},
+           {"label": "b", "prompt": "The British singer and pianist Elton", "target": " John"}]
+    r = c.post("/experiments/polysemanticity/candidates", json={"contexts": ctx, "top": 5})
+    assert r.status_code == 200, r.text
+    cand = r.json()["candidates"][0]
+    r = c.post("/experiments/polysemanticity", json={"layer": cand["layer"], "neuron": cand["neuron"], "sign": cand["signs"][0],
+                                                     "contexts": ctx, "n_controls": 3, "seed": 1})
+    assert r.status_code == 200, r.text
+    b = r.json()
+    assert b["overall"] in {"supported", "contradicted", "inconclusive", "insufficient_data"}
+    assert all(len(x["controls"]["delta_logprob"]) == 3 for x in b["contexts"]) and b["hooks_remaining"] == 0
+    r = c.post("/experiments/polysemanticity", json={"layer": 1, "neuron": 1, "sign": "+", "contexts": ctx[:1]})
+    assert r.status_code == 422

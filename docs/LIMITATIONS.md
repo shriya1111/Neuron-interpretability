@@ -3,12 +3,19 @@
 This file is kept current as phases land. It lists everything that could make a NeuronLab
 result differ from the paper's, so that nothing is mislabelled as a reproduction.
 
-## Current state (Phase 1)
+## Current state (Phase 2)
 
-* **No paper result has been reproduced yet.** Phase 1 runs on Qwen2.5-0.5B / Qwen3-0.6B,
-  which the paper did not study. Paper neuron IDs are refused for any other checkpoint.
-* **No lenses yet.** The logit lens (Phase 2), J-lens and J-share (Phase 3) are not built.
-  Nothing in the UI shows a vocabulary readout of a neuron yet.
+* **Different models from the paper (deliberate choice).** The primary model is Qwen3-0.6B, and the cross-check is
+  Qwen2.5-0.5B. The paper studied 8B–32B models (Llama-3.1-8B-Instruct, Qwen3-8B/14B, OLMo-3-32B). Our results replicate
+  the *methods*, not the paper's *numbers*. Paper neuron IDs are refused for these models.
+* **The small model doesn't know several of the paper's facts.** For example, "John" as the answer for a password
+  cracker, Jágr → hockey, and bs4 (see the lab notebook). Experiments use contexts the model does know.
+* **Logit lens only.** Readouts and candidate scans use the logit lens and direct logit attribution, which see only
+  the direct path to the output. The paper reads neurons with the J-lens (Phase 3). Middle-layer neurons that act
+  through later layers are under-detected until then.
+* **Type 1 statistics.** The paper defines Type 1 (zeroing lowers the concept's probability) but gives no separate
+  statistical test. NeuronLab borrows Appendix B check 2's thresholds (≥ 0.03 nats and z ≤ −3 against matched random
+  directions). This is our choice, stated in every result.
 * **Attention heads** can be selected and their real attention probabilities shown, but there are
   no head-level interventions yet.
 * **Precision.** CPU runs use float32, so reconstruction errors are about 1e-7 relative. On GPU in bf16
@@ -22,7 +29,10 @@ result differ from the paper's, so that nothing is mislabelled as a reproduction
 
 ## Known differences from the paper (to be addressed in later phases)
 
-* **J-lens artifacts.** The paper says it used "the J-lens files released with Gurnee et al. (2026)".
+* **J-lens for small models.** No published J-lens exists for Qwen3-0.6B or Qwen2.5-0.5B. We will fit our own with
+  the reference estimator. Fewer prompts (CPU budget) give a noisier lens; the prompt count will be recorded and
+  convergence reported.
+* **J-lens artifacts (Llama, optional).** The paper says it used "the J-lens files released with Gurnee et al. (2026)".
   The publicly available Llama-3.1-8B-Instruct J-lens (`huggingface.co/neuronpedia/jacobian-lens`) was
   fitted by Neuronpedia with Anthropic's official `jlens` code on WikiText-103: 461 prompts × 128 tokens,
   bf16, stopped early at Δ=0.002. The J-lens paper's own lenses used 1,000 pretraining-like prompts.

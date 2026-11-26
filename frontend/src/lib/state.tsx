@@ -34,7 +34,7 @@ function usePersisted<T>(key: string, init: T): [T, (v: T) => void] {
 
 export function LabProvider({ children }: { children: React.ReactNode }) {
   const [backend, setBackend] = usePersisted("nl.backend", DEFAULT_BACKEND);
-  const [prompt, setPrompt] = usePersisted("nl.prompt", "The password cracking tool is called John the");
+  const [prompt, setPrompt] = usePersisted("nl.prompt", "The fourth Gospel was written by the apostle");
   const [layer, setLayer] = usePersisted("nl.layer", 10);
   const [neuron, setNeuron] = usePersisted("nl.neuron", 0);
   const [position, setPosition] = usePersisted("nl.position", -1);

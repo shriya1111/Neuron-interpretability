@@ -7,7 +7,7 @@ import transformers
 from models.loader import wrap_model
 
 os.environ.setdefault("HF_HUB_DISABLE_XET", "1")
-REAL_MODEL = os.environ.get("NEURONLAB_TEST_MODEL", "Qwen/Qwen2.5-0.5B")
+REAL_MODEL = os.environ.get("NEURONLAB_TEST_MODEL", "Qwen/Qwen3-0.6B")
 
 
 def _tiny(kind: str, **extra):

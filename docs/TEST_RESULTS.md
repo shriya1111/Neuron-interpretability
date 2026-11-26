@@ -36,6 +36,28 @@ the real prediction " Rip" (p = 0.9394) for "The password cracking tool is calle
 shows a reconstruction error of 2.93e-7. A zero-ablation of L10 n0 at the last token gives KL 7.65e-8.
 No console errors.
 
+## Phase 2 — 2026-11-26
+
+Primary model switched to **Qwen3-0.6B** (revision `c1899de289a04d12100db370d81485cdf75e47ca`).
+Command: `cd backend && pytest -v` → **80 passed**. Cross-check: `NEURONLAB_TEST_MODEL=Qwen/Qwen2.5-0.5B pytest tests/test_real_model.py` → **5 passed**.
+
+New checks:
+
+| Check | Result |
+|---|---|
+| Folded logit-lens scores == W_U(γ⊙w) in float64 | atol 1e-4 |
+| Readout of −w is the exact negation of +w | yes |
+| Residual lens at the last layer == model logits | max abs error 1.9e-6 (Qwen3-0.6B) |
+| Direct logit attribution == hand-computed direct effect | rel 1e-6 |
+| Zero ablation == adding −a·w via the vector-add path | atol 1e-5 |
+| Vector add affects only the chosen positions; zero vector is a no-op | yes |
+| Random control directions have exactly matched norm; seeded | yes |
+| Neuron search == brute force | same best neuron and cosine |
+| Real-model API: lens endpoints, candidate scan, Type 1 experiment, input validation | all pass |
+
+UI end-to-end (headless Chromium, Qwen3-0.6B): Vocabulary Lenses (neuron readout, residual lens) and the
+Polysemanticity Lab (scan → run experiment → verdict "inconclusive" for L27 n81 −) render with no console errors.
+
 <details><summary>Full pytest listing</summary>
 
 ```

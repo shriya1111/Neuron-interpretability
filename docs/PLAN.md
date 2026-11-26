@@ -124,11 +124,15 @@ frontend/  (Next.js, TS, Tailwind)  ──HTTP/WS──►  backend/ (FastAPI, P
 
 ## 2. Phases
 
+**Model decision (2026-11-26):** the primary model is **Qwen3-0.6B**, with **Qwen2.5-0.5B** as the cross-check.
+Every experiment applies the paper's procedure to these models. Paper neuron IDs are not used; each experiment
+discovers its own candidates. Llama-3.1-8B-Instruct stays supported as an optional extra.
+
 | Phase | Scope | Compute |
 |---|---|---|
-| **1** | Neuron microscope: loader/adapters, hooks, activation capture, neuron decomposition, reconstruction check, interventions (zero/scale/negate/set/restore), baseline vs. modified predictions, architecture explorer, correctness tests, frontend | CPU, Qwen2.5-0.5B / Qwen3-0.6B |
-| 2 | Llama-3.1-8B-Instruct, logit lens (direction projection with folded final-norm gain vs. full-state lens), John neuron (L28 n2760, −) reproduction | GPU ≥24 GB, HF token |
-| 3 | J-lens: load published `.pt` (Neuronpedia/official jlens format), own calibration pipeline (batched VJPs, chunking, checkpointing, merge), J-share via nonnegative pursuit with refitting, random-direction baselines (quick + 2,048), JVP/finite-difference validation plots | load: CPU/GPU; fit: GPU |
+| **1 ✔** | Neuron microscope: loader/adapters, hooks, activation capture, neuron decomposition, reconstruction check, interventions (zero/scale/negate/set/restore), baseline vs. modified predictions, architecture explorer, correctness tests, frontend | CPU, Qwen2.5-0.5B / Qwen3-0.6B |
+| **2 ✔** | Logit lens (direction readout with folded γ; residual-state lens across depth), direct logit attribution, neuron search by token, vector-add interventions, matched random-direction controls, Type 1 experiment + exploratory candidate scan (applied to "John" contexts on Qwen3-0.6B) | CPU |
+| 3 | J-lens: own calibration pipeline for Qwen3-0.6B / Qwen2.5-0.5B (batched VJPs, checkpointing, merge; same estimator as the official `jlens`), loader for published `.pt` files, J-share via nonnegative pursuit with refitting, random-direction baselines (quick + 2,048), JVP/finite-difference validation plots | CPU (hours) or free GPU |
 | 4 | Polysemanticity Types 1–3, Appendix B four checks with exact thresholds, Pile-10k filtering, random-direction controls, recall calibration with synthetic neurons, randomized census, exploratory scanner kept separate from confirmation | GPU |
 | 5 | Cross-layer injection (C.2 selection, `f·REF·unit(w)` at every position, 3 random controls), C.1 shrink analysis, concept facets (C.3) with intervention-backed causal edges only | GPU |
 | 6 | Factual recall lab: baseline/first-token vs full-answer, attribution (Appendix D), resample ablation default, progressive removal with random-neuron controls, group restore, MLP-range patching | GPU |

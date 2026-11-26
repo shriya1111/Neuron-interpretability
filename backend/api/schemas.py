@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 
 
 class LoadRequest(BaseModel):
-    model_id: str = "Qwen/Qwen2.5-0.5B"
+    model_id: str = "Qwen/Qwen3-0.6B"
     device: str | None = Field(None, description="cuda | mps | cpu | auto")
     dtype: Literal["float32", "bfloat16", "float16"] | None = None
     revision: str | None = None
@@ -58,3 +58,42 @@ class InterventionRequest(PromptInput):
     target_tokens: list[str] = Field(default_factory=list,
                                      description="exact strings; each must encode to a single token (e.g. ' John')")
     seed: int = 0
+
+
+class LogitLensRequest(BaseModel):
+    kind: Literal["neuron", "residual", "vector"]
+    layer: int | None = None
+    neuron: int | None = None
+    prompt: str | None = None
+    position: int = -1
+    vector: list[float] | None = None
+    top_k: int = Field(20, ge=1, le=200)
+    target_tokens: list[str] = Field(default_factory=list)
+
+
+class NeuronSearchRequest(BaseModel):
+    target: str = Field(..., description="exact single-token string, e.g. ' John'")
+    sign: Literal["+", "-"] = "+"
+    top: int = Field(30, ge=1, le=500)
+    layers: list[int] | None = None
+
+
+class ContextIn(BaseModel):
+    label: str = ""
+    prompt: str = Field(..., min_length=1)
+    target: str = Field(..., min_length=1)
+
+
+class Type1Request(BaseModel):
+    layer: int
+    neuron: int
+    sign: Literal["+", "-"]
+    contexts: list[ContextIn] = Field(..., min_length=2)
+    n_controls: int = Field(20, ge=2, le=500)
+    seed: int = 0
+
+
+class Type1CandidatesRequest(BaseModel):
+    contexts: list[ContextIn] = Field(..., min_length=2)
+    sign: Literal["+", "-"] | None = None
+    top: int = Field(25, ge=1, le=200)

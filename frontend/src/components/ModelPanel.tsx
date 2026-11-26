@@ -5,7 +5,7 @@ import { Architecture, call, Provenance } from "@/lib/api";
 import { useLab } from "@/lib/state";
 import { Btn, ErrorBox, KV, Learn, Section } from "./ui";
 
-const MODELS = ["Qwen/Qwen2.5-0.5B", "Qwen/Qwen3-0.6B", "meta-llama/Llama-3.1-8B-Instruct", "Qwen/Qwen3-8B"];
+const MODELS = ["Qwen/Qwen3-0.6B", "Qwen/Qwen2.5-0.5B", "meta-llama/Llama-3.1-8B-Instruct", "Qwen/Qwen3-8B"];
 
 export function ModelPanel() {
   const { backend, arch, prov, setModel } = useLab();
@@ -49,8 +49,8 @@ export function ModelPanel() {
             <KV k="revision" v={String(prov.model_revision ?? "unknown").slice(0, 12)} />
           </div>
         )}
-        <Learn>Dimensions are read from the loaded checkpoint. Paper neuron IDs (e.g. L28 n2760) are only valid for
-          the exact checkpoint they were reported on (Llama-3.1-8B-Instruct).</Learn>
+        <Learn>Primary model: Qwen3-0.6B (same family as the paper&apos;s Qwen3-8B/14B). Cross-check: Qwen2.5-0.5B. Dimensions are read
+          from the loaded checkpoint. Paper neuron IDs (e.g. Llama L28 n2760) are refused for any other checkpoint.</Learn>
       </div>
     </Section>
   );

@@ -80,6 +80,19 @@ def run_forward(handle, input_ids: torch.Tensor, capture: CaptureSpec | None = N
     t0 = time.time()
 
     with handle.lock, torch.no_grad(), hooks() as hs:
+        # Vector additions are registered first so that capture hooks observe the modified outputs.
+        for va in plan.vector_adds:
+            adapter.check_layer(va.layer)
+            p0 = next(model.parameters())
+            delta = va.delta(seq_len, adapter.d_model, p0.dtype, handle.device)
+            site = adapter.mlp(va.layer).module if va.site == "mlp_out" else adapter.block(va.layer)
+
+            def add_hook(mod, inp, out, delta=delta):
+                if isinstance(out, (tuple, list)):
+                    return (out[0] + delta,) + tuple(out[1:])
+                return out + delta
+            hs.forward(site, add_hook)
+
         if capture:
             for L in layers:
                 adapter.check_layer(L)

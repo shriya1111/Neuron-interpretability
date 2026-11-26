@@ -208,3 +208,76 @@ def interventions(req: schemas.InterventionRequest):
         return out
 
     return _wrap(go)
+
+
+# ---------------------------------------------------------------- Phase 2: logit lens
+
+from experiments.polysemanticity import type1, type1_candidates  # noqa: E402
+from interpretability import logit_lens  # noqa: E402
+
+
+@router.post("/lens/logit")
+def lens_logit(req: schemas.LogitLensRequest):
+    h = _handle()
+
+    def go():
+        targets = [_single_token(h, s) for s in req.target_tokens]
+        if req.kind == "neuron":
+            if req.layer is None or req.neuron is None:
+                raise ValueError("kind=neuron needs layer and neuron")
+            out = logit_lens.neuron_readout(h.tokenizer, h.adapter, req.layer, req.neuron, req.top_k, targets)
+            ids = None
+        elif req.kind == "vector":
+            if not req.vector or len(req.vector) != h.adapter.d_model:
+                raise ValueError(f"kind=vector needs a vector of length d_model={h.adapter.d_model}")
+            out = logit_lens.direction_readout(h.tokenizer, h.adapter, torch.tensor(req.vector), req.top_k, targets)
+            ids = None
+        else:
+            if not req.prompt:
+                raise ValueError("kind=residual needs a prompt")
+            ids = h.tokenizer(req.prompt, return_tensors="pt").input_ids[0]
+            out = logit_lens.residual_lens(h, ids, req.position, min(req.top_k, 50), targets)
+        _hooks_clean(h)
+        out["provenance"] = provenance(h, prompt=req.prompt, input_ids=ids, params=req.model_dump(exclude={"vector"}))
+        return out
+
+    return _wrap(go)
+
+
+@router.post("/lens/neuron-search")
+def lens_neuron_search(req: schemas.NeuronSearchRequest):
+    h = _handle()
+
+    def go():
+        out = logit_lens.neuron_search(h.tokenizer, h.adapter, _single_token(h, req.target), req.sign, req.top, req.layers)
+        out["provenance"] = provenance(h, params=req.model_dump())
+        return out
+
+    return _wrap(go)
+
+
+@router.post("/experiments/polysemanticity")
+def exp_type1(req: schemas.Type1Request):
+    h = _handle()
+
+    def go():
+        set_deterministic(req.seed)
+        out = type1(h, req.layer, req.neuron, req.sign, [c.model_dump() for c in req.contexts], req.n_controls, req.seed)
+        out["hooks_remaining"] = _hooks_clean(h)
+        out["provenance"] = provenance(h, seed=req.seed, params=req.model_dump())
+        return out
+
+    return _wrap(go)
+
+
+@router.post("/experiments/polysemanticity/candidates")
+def exp_type1_candidates(req: schemas.Type1CandidatesRequest):
+    h = _handle()
+
+    def go():
+        out = type1_candidates(h, [c.model_dump() for c in req.contexts], req.sign, req.top)
+        _hooks_clean(h)
+        out["provenance"] = provenance(h, params=req.model_dump())
+        return out
+
+    return _wrap(go)

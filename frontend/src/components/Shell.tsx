@@ -6,15 +6,16 @@ import { ReactNode, useState } from "react";
 import { call } from "@/lib/api";
 import { useLab } from "@/lib/state";
 
+// status: built | partial | planned (badge shows the phase that completes it)
 export const NAV = [
-  { href: "/explorer", label: "Model Explorer", phase: 1 },
-  { href: "/microscope", label: "Neuron Microscope", phase: 1 },
-  { href: "/lenses", label: "Vocabulary Lenses", phase: 2 },
-  { href: "/polysemanticity", label: "Polysemanticity Lab", phase: 4 },
-  { href: "/steering", label: "Cross-Layer Steering", phase: 5 },
-  { href: "/recall", label: "Factual Recall Lab", phase: 6 },
-  { href: "/custom", label: "Custom Experiments", phase: 7 },
-  { href: "/history", label: "Experiment History", phase: 7 },
+  { href: "/explorer", label: "Model Explorer", phase: 1, status: "built" },
+  { href: "/microscope", label: "Neuron Microscope", phase: 1, status: "built" },
+  { href: "/lenses", label: "Vocabulary Lenses", phase: 3, status: "partial" },
+  { href: "/polysemanticity", label: "Polysemanticity Lab", phase: 4, status: "partial" },
+  { href: "/steering", label: "Cross-Layer Steering", phase: 5, status: "planned" },
+  { href: "/recall", label: "Factual Recall Lab", phase: 6, status: "planned" },
+  { href: "/custom", label: "Custom Experiments", phase: 7, status: "planned" },
+  { href: "/history", label: "Experiment History", phase: 7, status: "planned" },
 ];
 
 export function Shell({ children }: { children: ReactNode }) {
@@ -60,7 +61,7 @@ export function Shell({ children }: { children: ReactNode }) {
           {NAV.map((n) => (
             <Link key={n.href} href={n.href}
               className={`px-2 py-1 rounded text-[12px] flex justify-between ${path?.startsWith(n.href) ? "bg-panel-2 text-accent font-medium" : "text-fg"}`}>
-              <span>{n.label}</span>{n.phase > 1 && <span className="text-[10px] text-muted">P{n.phase}</span>}
+              <span>{n.label}</span>{n.status !== "built" && <span className="text-[10px] text-muted" title={n.status === "partial" ? `partly built; completed in Phase ${n.phase}` : `planned for Phase ${n.phase}`}>{n.status === "partial" ? "◐" : ""}P{n.phase}</span>}
             </Link>
           ))}
           <div className="mt-auto text-[10px] text-muted p-1 leading-tight">
