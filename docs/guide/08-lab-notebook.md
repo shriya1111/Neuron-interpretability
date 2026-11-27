@@ -235,3 +235,33 @@ neuron-basis paper reads neurons with it.
   4. the paper notes that low-J-share neurons tend to align with later attention queries (Appendix A.3), which we
      haven't measured.
 * **Next test:** query alignment (A.3) for the low-J-share neurons.
+
+---
+
+### 2026-11-27 — Type 3 audit of L19 n2780 (−): months + document sections → **contradicted**
+
+**Scanner candidate:** readout groups of months (September, June, April) and document sections (Contents, Introduction).
+**Control words (ours):** weekdays for months; Conclusion/Abstract/References/Appendix for sections.
+
+| Check | Months docs → section words | Section docs → month words |
+|---|---|---|
+| 1 (≥5 docs, margin ≥ 0.07) | 26/150, share 0.173 vs 0.105 → margin **0.068** ✗ | 30/150, 0.200 vs 0.105 ✓ |
+| 2 (≥0.03 nats, z ≥ 3) | 0.633 nats, **z = 2.92** ✗ | 1.093 nats, **z = 5.22** ✓ |
+| 3 (category controls) | ✓ (ratio 0.14) | ✓ (ratio 0.35, z 1.99) |
+| 4 (≤ ½ word pieces) | **60% continuations** ✗: table, By, orm, -before, vers | 26% ✓ |
+
+* **Paper sample sizes:** 150/40/200/20, 20 min CPU. The exploratory run (60/12/10) had called it
+  *inconclusive*, with every check passing except one z = 2.78. **At full size, two more checks fail.**
+* **Reading:** in document-section texts the neuron strongly supports month names (dates in front matter). In month
+  texts its largest effect is on word pieces like "table" / "By". That looks like **one structural concept (document
+  front matter: dates, contents, bylines)**, not two unrelated topics.
+* **Consistent with the paper:** Type 3 is rare, and the scanner's best candidates mostly fail the checks.
+
+### 2026-11-27 — Type 2 test of L14 n2000 (12 contexts per sign, 20 random directions)
+
+* **+w words** (spells, magical, vampire, magic, mystical): own-context ablation effect **0.045 nats, z = 3.71 → supported**.
+* **−w words** (注明, 标明, 标注, Remarks, 名单): **0.028 nats, z = 1.81 → inconclusive** (just under 0.03).
+* **Cross-sign effects ≈ 0.**
+* **Steering on neutral prompts:** setting a = +A raises the + words by 0.14 nats (− words +0.03); setting a = −A'
+  lowers the + words by 0.14.
+* **Verdict:** inconclusive overall. The magic concept is causally supported; the annotation concept isn't established.
