@@ -495,7 +495,7 @@ read its methods page.
 
 ### Step 37. J-share
 * Nonnegative OMP with NNLS refits (`scipy.optimize.nnls`).
-* **Pitfall caught:** the first version copied the whole $151{,}936	imes1024$ direction matrix to float64 on every call
+* **Pitfall caught:** the first version copied the whole $151{,}936\times1024$ direction matrix to float64 on every call
   (about 1.2 GB). Index the chosen rows first, then convert.
 * **Suspicious-looking result checked:** the biggest coefficients weren't the top readout tokens. An independent NNLS
   solve confirmed the result was right: refitting shifts weight to less-correlated directions. The fix was in
