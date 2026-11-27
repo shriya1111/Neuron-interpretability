@@ -72,14 +72,20 @@ def tokenize(tokenizer, text: str, n_tokens: int = N_TOKENS):
     return torch.tensor(ids, dtype=torch.long)
 
 
+def _spaceless_script(w: str) -> bool:
+    """Chinese/Japanese/Thai words are written without a preceding space (Korean uses spaces, so it is not listed)."""
+    return any(0x2E80 <= ord(ch) <= 0x9FFF or 0x0E00 <= ord(ch) <= 0x0E7F or 0x3040 <= ord(ch) <= 0x30FF for ch in w)
+
+
 def word_first_tokens(tokenizer, words: list[str]) -> list[int]:
-    """First token of ' word' for each word (the paper measures the first tokens of a topic's words)."""
+    """First token of each word as it appears mid-text: ' word' for space-separated scripts, 'word' for CJK/Thai
+    (the paper measures the first tokens of a topic's words)."""
     out = []
     for w in words:
         w = w.strip()
         if not w:
             continue
-        ids = tokenizer.encode(" " + w, add_special_tokens=False)
+        ids = tokenizer.encode(w if _spaceless_script(w) else " " + w, add_special_tokens=False)
         if ids:
             out.append(ids[0])
     return sorted(set(out))

@@ -37,9 +37,10 @@ def default_words(handle, layer: int, neuron: int, sign: str, n: int = 8) -> lis
     ids = jr["pos_ids" if sign == "+" else "neg_ids"][neuron].tolist()
     out = []
     for t in ids:
-        s = handle.tokenizer.decode([t])
-        if s.startswith(" ") and s[1:].strip().isalpha():
-            out.append(s.strip())
+        s = handle.tokenizer.decode([t]).strip()
+        # any script counts (e.g. 注明); require >= 2 letters so punctuation and word pieces like "s" are skipped
+        if sum(ch.isalpha() for ch in s) >= 2 and s not in out:
+            out.append(s)
         if len(out) == n:
             break
     return out
@@ -55,7 +56,10 @@ def run(handle, layer: int, neuron: int, words_plus: list[str] | None = None, wo
     nd = st.neuron(tok, layer, neuron, k=n_contexts)
     words = {"+": words_plus or default_words(handle, layer, neuron, "+"),
              "-": words_minus or default_words(handle, layer, neuron, "-")}
-    wtok = {s: torch.tensor(corpus.word_first_tokens(tok, words[s]) or [0]) for s in "+-"}
+    for s in "+-":
+        if not words[s]:
+            raise ValueError(f"no usable words for the {s} side (readout has no word-like tokens); pass words_{'plus' if s == '+' else 'minus'} explicitly")
+    wtok = {s: torch.tensor(corpus.word_first_tokens(tok, words[s])) for s in "+-"}
     rw = torch.tensor(list(corpus.random_word_tokens(tok, n_random_words, seed)))
     w = ad.output_vector(layer, neuron).detach().float().cpu()
     dirs = random_directions(n_random_dirs, ad.d_model, float(w.norm()), seed)

@@ -39,13 +39,14 @@ def test_jobs_success_failure_cancel():
 
 
 class _Tok:
-    vocab = {" Paris": [7], " New York": [11, 12], "x": [3]}
+    vocab = {" Paris": [7], " New York": [11, 12], "x": [3], "注明": [21, 22], " 注明": [30, 21]}
     def encode(self, s, add_special_tokens=False): return self.vocab.get(s, [99])
     def decode(self, ids): return {5: "ing", 6: " walk", 8: "Ing", 9: "."}.get(ids[0], "?")
 
 
 def test_word_tokens_and_continuations():
     assert corpus.word_first_tokens(_Tok(), ["Paris", "New York", " Paris "]) == [7, 11]
+    assert corpus.word_first_tokens(_Tok(), ["注明"]) == [21]  # CJK: no leading space
     t = _Tok()
     assert corpus.is_word_continuation(t, 5) and not corpus.is_word_continuation(t, 6)
     assert not corpus.is_word_continuation(t, 8) and not corpus.is_word_continuation(t, 9)
