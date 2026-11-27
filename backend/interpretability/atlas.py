@@ -129,6 +129,29 @@ class AtlasStore:
                           "writes_logit_lens": "top tokens of W_U(γ_final ⊙ ±w): direct path only",
                           "writes_jlens": "top tokens by cosine with the fitted corpus-mean J-lens directions of this layer"}}
 
+    def summary(self, tokenizer, L: int, n: int, k: int = 6) -> dict:
+        """Compact per-neuron card for hover tooltips: stats, census J-share, top readouts, strongest firing per sign."""
+        z = self.layer(L)
+        if not 0 <= n < z["max_abs"].shape[0]:
+            raise ValueError(f"neuron must be in [0, {z['max_abs'].shape[0] - 1}]")
+        dec = _decoder(tokenizer)
+        cz, jr = _census(L), _jlens_readouts(L)
+        sides = {}
+        for s_, key in (("pos", "plus"), ("neg", "minus")):
+            i0, v0 = int(z[f"top_{s_}_idx"][n, 0]), float(z[f"top_{s_}_val"][n, 0])
+            side = {"fire_rate": float(z[f"n_open_{s_}"][n] / self.total_positions),
+                    "logit_lens": [dec(int(t)) for t in z[f"read_{s_}_ids"][n, :k].tolist()],
+                    "top_firing": dict(self._snippet(dec, i0, before=10, after=2), activation=v0) if i0 >= 0 else None}
+            side["top_firing"] and side["top_firing"].pop("prefix_token_ids", None)
+            if jr is not None:
+                side["jlens"] = [dec(int(t)) for t in jr[f"{s_}_ids"][n, :k].tolist()]
+            if cz is not None:
+                v = float(cz["js_pos" if s_ == "pos" else "js_neg"][n])
+                side["j_share"] = {"value": v, "class": "high" if v > float(cz["p99"]) else "low" if v < float(cz["p1"]) else "middle"}
+            sides[key] = side
+        sign_used = None if cz is None else ("+" if bool(cz["sign_used_pos"][n]) else "-")
+        return {"layer": L, "neuron": n, "max_abs": float(z["max_abs"][n]), "sign_used": sign_used, **sides}
+
     def search_word(self, tokenizer, word: str, limit: int = 40) -> list[dict]:
         """Neurons whose ±w logit-lens readout (top 12) contains a token decoding to `word` (case-insensitive, trimmed)."""
         target = word.strip().lower()

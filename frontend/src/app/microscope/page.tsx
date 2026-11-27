@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ModelPanel } from "@/components/ModelPanel";
+import { useNeuronHover } from "@/components/NeuronHover";
 import { NeuronGrid } from "@/components/NeuronGrid";
 import Plot from "@/components/Plot";
 import { Workspace } from "@/components/Shell";
@@ -25,6 +26,7 @@ export default function Microscope() {
   const [gridPoint, setGridPoint] = useState<"act" | "gate_pre" | "up">("act");
 
   const L = arch ? Math.min(layer, arch.n_layers - 1) : 0;
+  const hov = useNeuronHover();
   const N = arch ? Math.min(neuron, arch.d_mlp - 1) : 0;
   const dPrompt = useDebounced(prompt, 500);
 
@@ -182,7 +184,7 @@ export default function Microscope() {
         {ins && <Section title={`Top neurons in L${ins.layer} at this token`}>
           <div className="text-[11px] text-muted">by ‖a·w‖ ({ins.layer_top_neurons_at_position.n_gate_open}/{ins.layer_top_neurons_at_position.d_mlp} gates open)</div>
           <div className="flex flex-wrap gap-1 mt-1">{ins.layer_top_neurons_at_position.by_contribution_norm.map((n) => (
-            <button key={n.neuron} onClick={() => setNeuron(n.neuron)} className="num text-[11px] border border-line rounded px-1"
+            <button key={n.neuron} {...hov(L, n.neuron)} onClick={() => setNeuron(n.neuron)} className="num text-[11px] border border-line rounded px-1"
               style={{ color: n.activation >= 0 ? "var(--pos)" : "var(--neg)" }}>n{n.neuron} {fmt(n.contribution_norm, 2)}</button>))}</div>
         </Section>}
         {cmp && <Section title="Baseline vs. modified (separate forward passes)">

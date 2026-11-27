@@ -10,6 +10,15 @@ Every page uses three panels:
 The header has the backend URL (click to point it at a remote GPU), **learning / research** mode, and **dark / light**.
 Learning mode adds explanatory notes (blue left border). Research mode hides them.
 
+**Hover cards.** Hover any neuron to see a summary card next to the cursor, without leaving the page. This works on
+Atlas pixels, layer-table rows, search results, scanner and candidate rows, the top-neuron chips in the Explorer and
+Microscope, the Microscope's grid rows, and the neuron-search rows. The card shows, for each sign:
+* firing rate and census J-share class;
+* J-lens and logit-lens readouts;
+* the strongest firing snippet, with the firing token highlighted.
+
+Clicking still opens the full page. Cards come from `GET /atlas/summary/{L}/{n}` (under 1 ms) and are cached in the browser.
+
 Sidebar badges: no badge = built. `◐P3` = partly built, completed in Phase 3. `P5` = planned for Phase 5.
 Planned pages show no data.
 

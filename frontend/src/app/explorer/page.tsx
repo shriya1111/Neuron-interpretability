@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArchitectureGraph } from "@/components/ArchitectureGraph";
 import { ModelPanel } from "@/components/ModelPanel";
+import { useNeuronHover } from "@/components/NeuronHover";
 import Plot from "@/components/Plot";
 import { Workspace } from "@/components/Shell";
 import { Btn, ErrorBox, Expand, fmt, KV, Learn, Section, showTok, TokenStrip, TopKTable } from "@/components/ui";
@@ -26,6 +27,7 @@ export default function Explorer() {
   const [showAttn, setShowAttn] = useState(false);
   const [logScale, setLogScale] = useState(true);
   const L = arch ? Math.min(layer, arch.n_layers - 1) : 0;
+  const hov = useNeuronHover();
 
   const run = useCallback(async () => {
     if (!arch) return;
@@ -113,7 +115,7 @@ export default function Explorer() {
             <div className="text-[11px] text-muted mb-1">Largest |activation| neurons at this token (click to open in microscope)</div>
             <div className="flex flex-wrap gap-1">
               {s.top_neurons_at_position.map((n) => (
-                <Link key={n.neuron} href="/microscope" onClick={() => { setNeuron(n.neuron); setLayer(L); }}
+                <Link key={n.neuron} href="/microscope" {...hov(L, n.neuron)} onClick={() => { setNeuron(n.neuron); setLayer(L); }}
                   className="border border-line rounded px-1 num text-[11px]" style={{ color: n.activation >= 0 ? "var(--pos)" : "var(--neg)" }}>
                   n{n.neuron} {fmt(n.activation, 2)}
                 </Link>))}

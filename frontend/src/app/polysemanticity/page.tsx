@@ -5,6 +5,7 @@ import { ModelPanel } from "@/components/ModelPanel";
 import Plot from "@/components/Plot";
 import { Workspace } from "@/components/Shell";
 import { Btn, ErrorBox, Expand, fmt, KV, Learn, Section, showTok, TokenStrip, TopKTable } from "@/components/ui";
+import { useNeuronHover } from "@/components/NeuronHover";
 import { ScanView, Type2View, Type3View } from "@/components/PolyViews";
 import { call, Tok, TopK } from "@/lib/api";
 import { useLab } from "@/lib/state";
@@ -41,6 +42,7 @@ function Type1View() {
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
+  const hov = useNeuronHover();
   const upd = (i: number, k: keyof Ctx, v: string) => setCtx(ctx.map((c, j) => (j === i ? { ...c, [k]: v } : c)));
 
   async function findCands() {
@@ -75,7 +77,7 @@ function Type1View() {
         <Section title="1 · Find candidates (exploratory)">
           <Btn onClick={findCands} disabled={!arch || !!busy}>{busy === "candidates" ? "scanning…" : "scan all neurons"}</Btn>
           {cands && <table className="w-full text-[11px] num mt-1"><tbody>{cands.map((c) => (
-            <tr key={`${c.layer}-${c.neuron}`} className="border-t border-line cursor-pointer" onClick={() => { setLayer(c.layer); setNeuron(c.neuron); setSign(c.signs[0] as "+" | "-"); }}>
+            <tr key={`${c.layer}-${c.neuron}`} className="border-t border-line cursor-pointer hover:bg-panel-2" {...hov(c.layer, c.neuron)} onClick={() => { setLayer(c.layer); setNeuron(c.neuron); setSign(c.signs[0] as "+" | "-"); }}>
               <td className="text-accent">L{c.layer} n{c.neuron} ({c.signs.join("")})</td><td className="text-right">min DLA {fmt(c.min_dla, 3)}</td></tr>))}</tbody></table>}
           <Learn>Ranks every neuron by the smallest direct logit attribution a·(u_target·w)/rms over the contexts. This only finds candidates; it is not evidence.</Learn>
         </Section>

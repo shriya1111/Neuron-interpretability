@@ -3,6 +3,7 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useEffect, useRef, useState } from "react";
 import { call, CaptureResp, Tok } from "@/lib/api";
+import { useNeuronHover } from "./NeuronHover";
 import { color, fmt, showTok } from "./ui";
 
 const PAGE = 256;
@@ -22,6 +23,7 @@ export function NeuronGrid({ backend, prompt, layer, dMlp, selected, onSelect, p
   const [jump, setJump] = useState("");
   const loading = useRef<Set<number>>(new Set());
   const parent = useRef<HTMLDivElement>(null);
+  const hov = useNeuronHover();
 
   useEffect(() => { setPages({}); loading.current = new Set(); setOverview(null); }, [backend, prompt, layer, point]);
 
@@ -58,7 +60,7 @@ export function NeuronGrid({ backend, prompt, layer, dMlp, selected, onSelect, p
         <input placeholder="go to neuron" value={jump} onChange={(e) => setJump(e.target.value)} className="w-24 num"
           onKeyDown={(e) => { const n = parseInt(jump); if (e.key === "Enter" && n >= 0 && n < dMlp) { v.scrollToIndex(n, { align: "center" }); onSelect(n); } }} />
         <span className="text-muted">top max|a|:</span>
-        {topN.map(([x, i]) => <button key={i} className="num text-accent" title={fmt(x)} onClick={() => { v.scrollToIndex(i, { align: "center" }); onSelect(i); }}>n{i}</button>)}
+        {topN.map(([, i]) => <button key={i} className="num text-accent" {...hov(layer, i)} onClick={() => { v.scrollToIndex(i, { align: "center" }); onSelect(i); }}>n{i}</button>)}
       </div>
       {err && <div className="text-bad text-[11px]">{err}</div>}
       <div className="flex font-mono text-[10px] text-muted pl-14 overflow-hidden">
@@ -70,7 +72,7 @@ export function NeuronGrid({ backend, prompt, layer, dMlp, selected, onSelect, p
             <div key={it.key} onClick={() => onSelect(it.index)}
               className={`absolute left-0 flex items-center cursor-pointer ${it.index === selected ? "outline outline-1 outline-accent" : ""}`}
               style={{ top: it.start, height: it.size }}>
-              <div className="w-14 shrink-0 text-right pr-1 num text-[10px] text-muted">n{it.index}</div>
+              <div className="w-14 shrink-0 text-right pr-1 num text-[10px] text-muted hover:text-accent" {...hov(layer, it.index)}>n{it.index}</div>
               {tokens.map((_, t) => {
                 const c = cell(it.index, t);
                 return <div key={t} className="w-[22px] h-[14px] shrink-0 border-r border-b border-line/30"

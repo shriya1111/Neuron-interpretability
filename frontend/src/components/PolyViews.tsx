@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { ModelPanel } from "./ModelPanel";
+import { useNeuronHover } from "./NeuronHover";
 import { Workspace } from "./Shell";
 import { Btn, ErrorBox, Expand, fmt, KV, Learn, Section, showTok } from "./ui";
 import { call } from "@/lib/api";
@@ -206,6 +207,7 @@ export function Type2View() {
 // ----------------------------------------------------------------------------------------------- scanner
 export function ScanView() {
   const { backend, arch, setLayer, setNeuron } = useLab();
+  const hov = useNeuronHover();
   const [from, setFrom] = useState(6);
   const [to, setTo] = useState(24);
   const { job, err, start, cancel } = useJob(backend);
@@ -227,7 +229,7 @@ export function ScanView() {
       center={r && <Section title={`${r.candidates.length} top candidates of ${r.n_scored.toLocaleString()} scored`}>
         <table className="w-full text-[11px] num"><thead className="text-muted"><tr><th className="text-left">neuron</th><th className="text-right">readout split</th>
           <th className="text-left pl-2">group A</th><th className="text-left">group B</th><th className="text-right">pair R²</th><th className="text-right">firing split</th></tr></thead>
-          <tbody>{r.candidates.map((c: any, i: number) => <tr key={i} className="border-t border-line cursor-pointer" onClick={() => { setLayer(c.layer); setNeuron(c.neuron); }}>
+          <tbody>{r.candidates.map((c: any, i: number) => <tr key={i} className="border-t border-line cursor-pointer hover:bg-panel-2" {...hov(c.layer, c.neuron)} onClick={() => { setLayer(c.layer); setNeuron(c.neuron); }}>
             <td className="text-accent">L{c.layer} n{c.neuron} ({c.sign})</td><td className="text-right">{fmt(c.readout_split_score, 3)}</td>
             <td className="font-mono pl-2">{c.group_a.slice(0, 5).map(showTok).join(" ")}</td><td className="font-mono">{c.group_b.slice(0, 5).map(showTok).join(" ")}</td>
             <td className="text-right">{c.pair_reconstruction ? fmt(c.pair_reconstruction.r2, 2) : "—"}</td>

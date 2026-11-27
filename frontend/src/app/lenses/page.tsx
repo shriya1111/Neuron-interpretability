@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { JCensusPanel, JNeuronPanel, JResidualPanel, JValidatePanel } from "@/components/JLensPanels";
 import { ModelPanel } from "@/components/ModelPanel";
+import { useNeuronHover } from "@/components/NeuronHover";
 import Plot from "@/components/Plot";
 import { Workspace } from "@/components/Shell";
 import { Btn, ErrorBox, fmt, Learn, Section, showTok, TokenStrip, TopKTable } from "@/components/ui";
@@ -33,6 +34,7 @@ export default function Lenses() {
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const tg = targets.split(",").filter((s) => s.length > 0);
+  const hov = useNeuronHover();
 
   async function run() {
     setBusy(true); setErr(null);
@@ -127,7 +129,7 @@ export default function Lenses() {
         {mode === "search" && search && <Section title={`Neurons whose ${sign}w most points toward the target (logit lens)`}>
           <table className="w-full text-[12px] num"><thead className="text-muted"><tr><th className="text-left">neuron</th><th className="text-right">cosine</th>
             <th className="text-right">score</th><th className="text-right">target rank in readout</th><th className="text-left">readout top-5</th></tr></thead>
-            <tbody>{search.candidates.map((c) => <tr key={`${c.layer}-${c.neuron}`} className="border-t border-line cursor-pointer"
+            <tbody>{search.candidates.map((c) => <tr key={`${c.layer}-${c.neuron}`} className="border-t border-line cursor-pointer hover:bg-panel-2" {...hov(c.layer, c.neuron)}
               onClick={() => { setLayer(c.layer); setNeuron(c.neuron); setMode("neuron"); }}>
               <td className="text-accent">L{c.layer} n{c.neuron} ({c.sign})</td><td className="text-right">{fmt(c.cosine, 4)}</td><td className="text-right">{fmt(c.score, 4)}</td>
               <td className="text-right">{c.rank_of_target.toLocaleString()}</td><td className="font-mono">{c.readout_top5.map(showTok).join(" ")}</td></tr>)}</tbody></table>

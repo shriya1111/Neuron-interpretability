@@ -70,3 +70,13 @@ def test_search_word(store):
     hits = st.search_word(_Tok(), "<8>")
     assert {(h["layer"], h["sign"], h["rank_in_readout"]) for h in hits} == {(0, "+", 2), (1, "+", 2)}
     assert st.search_word(_Tok(), "zzz") == []
+
+
+def test_summary_card(store):
+    st, tokens, T = store
+    s = st.summary(_Tok(), 0, 0, k=2)
+    assert s["plus"]["top_firing"]["activation"] == 5.0 and "prefix_token_ids" not in s["plus"]["top_firing"]
+    assert s["plus"]["logit_lens"] == ["<7>", "<8>"] and s["minus"]["fire_rate"] == 0.0
+    assert st.summary(_Tok(), 0, 1)["plus"]["top_firing"] is None
+    with pytest.raises(ValueError):
+        st.summary(_Tok(), 0, 99)

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { JNeuronPanel } from "@/components/JLensPanels";
+import { useNeuronHover, useNeuronHoverRaw } from "@/components/NeuronHover";
 import Plot from "@/components/Plot";
 import { Btn, ErrorBox, fmt, KV, Learn, showTok } from "@/components/ui";
 import { call, InterventionResp } from "@/lib/api";
@@ -23,6 +24,7 @@ const slugOf = (m: string) => m.split("/").pop()!.toLowerCase();
 /** One column per layer; each neuron is one pixel colored by its firing rate (log scale). */
 function LayerStrip({ ov, selected, onPick }: { ov: Overview; selected: { L: number; n: number | null }; onPick: (L: number, n: number | null) => void }) {
   const ref = useRef<HTMLCanvasElement>(null);
+  const hover = useNeuronHoverRaw();
   const nL = ov.layers.length, nN = ov.layers[0].fire_rate.length;
   const cols = 32, rows = Math.ceil(nN / cols), px = 3, gap = 6;
   useEffect(() => {
@@ -44,16 +46,19 @@ function LayerStrip({ ov, selected, onPick }: { ov: Overview; selected: { L: num
       ctx.fillStyle = "#ef4444"; ctx.fillRect(x0 + (selected.n % cols) * px - 1, Math.floor(selected.n / cols) * px - 1, px + 2, px + 2);
     }
   }, [ov, selected, nL, nN, cols, rows]);
+  const locate = (e: { target: EventTarget; clientX: number; clientY: number }) => {
+    const b = (e.target as HTMLCanvasElement).getBoundingClientRect();
+    const x = e.clientX - b.left, y = e.clientY - b.top;
+    const L = Math.floor(x / (cols * px + gap)), xi = Math.floor((x - L * (cols * px + gap)) / px), yi = Math.floor(y / px);
+    const n = yi * cols + xi;
+    return L >= 0 && L < nL && xi >= 0 && xi < cols && n >= 0 && n < nN ? { L, n } : null;
+  };
   return (
     <div className="overflow-x-auto">
       <canvas ref={ref} width={nL * (cols * px + gap)} height={rows * px} className="cursor-crosshair"
-        onClick={(e) => {
-          const b = (e.target as HTMLCanvasElement).getBoundingClientRect();
-          const x = e.clientX - b.left, y = e.clientY - b.top;
-          const L = Math.floor(x / (cols * px + gap)), xi = Math.floor((x - L * (cols * px + gap)) / px), yi = Math.floor(y / px);
-          const n = yi * cols + xi;
-          if (L >= 0 && L < nL && xi < cols && n < nN) onPick(L, n);
-        }} />
+        onClick={(e) => { const h = locate(e); if (h) onPick(h.L, h.n); }}
+        onMouseMove={(e) => { const h = locate(e); if (h) hover.show(h.L, h.n, e); else hover.hide(); }}
+        onMouseLeave={hover.hide} />
       <div className="flex num text-[10px] text-muted">{ov.layers.map((l) => <div key={l.layer} style={{ width: cols * px + gap }}
         className="cursor-pointer" onClick={() => onPick(l.layer, null)}>L{l.layer}</div>)}</div>
     </div>
@@ -122,6 +127,7 @@ export default function Atlas() {
   const [err, setErr] = useState<string | null>(null);
   const [test, setTest] = useState<{ sign: string; r: InterventionResp; f: Firing } | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const hov = useNeuronHover();
 
   const go = useCallback((l: number | null, n: number | null) => {
     if (!model) return;
@@ -188,7 +194,7 @@ export default function Atlas() {
       </div>
       <ErrorBox error={err} />
       {hits && <div className="mt-2 text-[12px]"><span className="text-muted">{hits.length} neurons whose ±w logit-lens readout contains it:</span>{" "}
-        {hits.map((h, i) => <button key={i} className="num text-accent mr-2" onClick={() => go(h.layer, h.neuron)}>L{h.layer}·n{h.neuron}{h.sign} (#{h.rank_in_readout})</button>)}</div>}
+        {hits.map((h, i) => <button key={i} className="num text-accent mr-2" {...hov(h.layer, h.neuron)} onClick={() => go(h.layer, h.neuron)}>L{h.layer}·n{h.neuron}{h.sign} (#{h.rank_in_readout})</button>)}</div>}
       {ov && <div className="mt-3"><LayerStrip ov={ov} selected={sel} onPick={go} />
         <div className="text-[10px] text-muted">Each pixel is one neuron; darker = fires (gate open) on more tokens. Click a pixel for its page, or a layer label for its table.</div></div>}
 
@@ -245,7 +251,7 @@ export default function Atlas() {
         <table className="w-full text-[12px] num mt-1">
           <thead className="text-muted"><tr><th className="text-left">neuron</th><th className="text-right">max |a|</th><th className="text-right">fires + / −</th>
             <th className="text-left pl-3">writes +w</th><th className="text-left">writes −w</th></tr></thead>
-          <tbody>{rows.map((r) => <tr key={r.neuron} className="border-t border-line cursor-pointer" onClick={() => go(L, r.neuron)}>
+          <tbody>{rows.map((r) => <tr key={r.neuron} className="border-t border-line cursor-pointer hover:bg-panel-2" {...hov(L, r.neuron)} onClick={() => go(L, r.neuron)}>
             <td className="text-accent">n{r.neuron}</td><td className="text-right">{fmt(r.max_abs, 2)}</td>
             <td className="text-right">{fmt(100 * r.fire_rate_pos, 2)}% / {fmt(100 * r.fire_rate_neg, 2)}%</td>
             <td className="font-mono pl-3" style={{ color: "var(--pos)" }}>{r.writes_pos.map(showTok).join(" ")}</td>

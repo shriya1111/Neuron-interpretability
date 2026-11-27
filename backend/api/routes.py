@@ -400,6 +400,12 @@ def atlas_neuron(layer: int, neuron: int, tag: str | None = None):
     return _wrap(lambda: st.neuron(h.tokenizer, layer, neuron))
 
 
+@router.get("/atlas/summary/{layer}/{neuron}")
+def atlas_summary(layer: int, neuron: int, tag: str | None = None):
+    h, st = _atlas(tag)
+    return _wrap(lambda: st.summary(h.tokenizer, layer, neuron))
+
+
 @router.get("/atlas/search")
 def atlas_search(q: str, tag: str | None = None):
     import re
