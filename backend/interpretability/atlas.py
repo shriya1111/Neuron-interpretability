@@ -106,12 +106,19 @@ class AtlasStore:
                 "writes_logit_lens": [{"id": int(t), "text": dec(int(t)), "score": float(sc)}
                                       for t, sc in zip(z[f"read_{s}_ids"][n].tolist(), z[f"read_{s}_score"][n].tolist())],
             }
+        jr = _jlens_readouts(L)
+        if jr is not None:
+            for s, key in (("pos", "plus"), ("neg", "minus")):
+                sides[s]["writes_jlens"] = [{"id": int(t), "text": dec(int(t)), "cosine": float(c)}
+                                            for t, c in zip(jr[f"{s}_ids"][n].tolist(), jr[f"{s}_cos"][n].tolist())]
         return {"layer": L, "neuron": n, "max_abs": float(z["max_abs"][n]), "plus": sides["pos"], "minus": sides["neg"],
+                "jlens": None if jr is None else {"dir": _jlens_dir(), "method": "cos(d_{l,t}, ±w), J-lens of the neuron's layer"},
                 "notes": {"firings": "strongest activations of that sign with the gate open (g·x > 0), position 0 excluded",
                           "fire_rate": "fraction of scanned positions where the gate is open and a has that sign",
                           "threshold_q999": "99.9th percentile of ±a over all positions of 200 random docs (Appendix B)",
                           "strong_rate_by_domain": "fraction of positions per Pile domain above that threshold",
-                          "writes_logit_lens": "top tokens of W_U(γ_final ⊙ ±w): direct path only"}}
+                          "writes_logit_lens": "top tokens of W_U(γ_final ⊙ ±w): direct path only",
+                          "writes_jlens": "top tokens by cosine with the fitted corpus-mean J-lens directions of this layer"}}
 
     def search_word(self, tokenizer, word: str, limit: int = 40) -> list[dict]:
         """Neurons whose ±w logit-lens readout (top 12) contains a token decoding to `word` (case-insensitive, trimmed)."""
@@ -131,6 +138,24 @@ class AtlasStore:
                     hits.append({"layer": L, "neuron": n, "sign": "+" if s == "pos" else "-", "rank_in_readout": rank})
         hits.sort(key=lambda h: (h["rank_in_readout"], h["layer"]))
         return hits[:limit]
+
+
+def _jlens_dir() -> str:
+    from interpretability.j_lens import DEFAULT_LENS
+    return os.environ.get("NEURONLAB_JLENS", DEFAULT_LENS)
+
+
+@lru_cache(maxsize=64)
+def _jlens_readouts_cached(path: str, L: int):
+    f = os.path.join(path, f"readouts_L{L:02d}.npz")
+    if not os.path.exists(f):
+        return None
+    z = np.load(f)
+    return {k: z[k] for k in z.files}
+
+
+def _jlens_readouts(L: int):
+    return _jlens_readouts_cached(_jlens_dir(), L)
 
 
 def _decoder(tokenizer):

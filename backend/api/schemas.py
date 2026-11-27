@@ -127,3 +127,35 @@ class WeightCompareRequest(BaseModel):
 
 class WeightExportRequest(BaseModel):
     name: str = Field(..., pattern=r"^[A-Za-z0-9_.-]{1,64}$")
+
+
+class JLensRequest(BaseModel):
+    kind: Literal["neuron", "residual", "vector"]
+    layer: int | None = None
+    neuron: int | None = None
+    prompt: str | None = None
+    position: int = -1
+    vector: list[float] | None = None
+    top_k: int = Field(20, ge=1, le=200)
+    target_tokens: list[str] = Field(default_factory=list)
+
+
+class JShareRequest(BaseModel):
+    layer: int
+    neuron: int | None = None
+    sign: Literal["+", "-"] = "+"
+    vector: list[float] | None = None
+    k: int = Field(25, ge=1, le=100)
+    n_random: int = Field(256, ge=0, le=4096, description="random baseline size; the paper uses 2048")
+    seed: int = 0
+
+
+class JValidateRequest(BaseModel):
+    prompt: str = Field(..., min_length=1)
+    layer: int
+    target: str
+    position: int = -1
+    direction: Literal["token_jlens", "neuron"] = "token_jlens"
+    neuron: int | None = None
+    sign: Literal["+", "-"] = "+"
+    eps_rel: list[float] | None = None

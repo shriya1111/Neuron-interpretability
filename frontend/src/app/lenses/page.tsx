@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { JNeuronPanel, JResidualPanel, JValidatePanel } from "@/components/JLensPanels";
 import { ModelPanel } from "@/components/ModelPanel";
 import Plot from "@/components/Plot";
 import { Workspace } from "@/components/Shell";
@@ -18,7 +19,7 @@ type ResidResp = { method: string; position: number; tokens: Tok[]; note: string
 type SearchResp = { method: string; candidates: { layer: number; neuron: number; sign: string; cosine: number; score: number;
   rank_of_target: number; readout_top5: string[] }[] };
 
-type Mode = "neuron" | "residual" | "search";
+type Mode = "neuron" | "residual" | "search" | "jneuron" | "jresidual" | "jvalidate";
 
 export default function Lenses() {
   const { backend, arch, prompt, setPrompt, layer, setLayer, neuron, setNeuron, position, setPosition } = useLab();
@@ -66,15 +67,18 @@ export default function Lenses() {
             <label><input type="radio" checked={mode === "neuron"} onChange={() => setMode("neuron")} /> neuron output vector (direction)</label>
             <label><input type="radio" checked={mode === "residual"} onChange={() => setMode("residual")} /> residual stream state at a token</label>
             <label><input type="radio" checked={mode === "search"} onChange={() => setMode("search")} /> find neurons that promote a token</label>
-            <label><input type="radio" disabled /> J-lens (Phase 3 — not built yet)</label>
+            <div className="text-[11px] text-muted mt-1">J-lens (fitted on 1,000 WikiText prompts)</div>
+            <label><input type="radio" checked={mode === "jneuron"} onChange={() => setMode("jneuron")} /> neuron: J-lens readout + J-share</label>
+            <label><input type="radio" checked={mode === "jresidual"} onChange={() => setMode("jresidual")} /> residual: J-lens across depth</label>
+            <label><input type="radio" checked={mode === "jvalidate"} onChange={() => setMode("jvalidate")} /> validate linear predictions</label>
           </div>
         </Section>
         <Section title="Inputs">
-          {mode === "neuron" && arch && <div className="flex gap-2 items-center">
+          {(mode === "neuron" || mode === "jneuron") && arch && <div className="flex gap-2 items-center">
             <label className="text-muted">L</label><input type="number" className="w-16 num" min={0} max={arch.n_layers - 1} value={layer} onChange={(e) => setLayer(+e.target.value)} />
             <label className="text-muted">n</label><input type="number" className="w-20 num" min={0} max={arch.d_mlp - 1} value={neuron} onChange={(e) => setNeuron(+e.target.value)} />
           </div>}
-          {mode === "residual" && <>
+          {(mode === "residual" || mode === "jresidual" || mode === "jvalidate") && <>
             <textarea className="w-full h-20 font-mono text-[12px]" value={prompt} onChange={(e) => setPrompt(e.target.value)} />
             {resid && <TokenStrip tokens={resid.tokens} selected={resid.position} onSelect={setPosition} />}
           </>}
@@ -82,11 +86,14 @@ export default function Lenses() {
             <select value={sign} onChange={(e) => setSign(e.target.value as "+" | "-")}><option>+</option><option>-</option></select></div>}
           <label className="text-[11px] text-muted mt-1 block">target token(s), exact strings, comma-separated</label>
           <input className="w-full font-mono" value={targets} onChange={(e) => setTargets(e.target.value)} />
-          <div className="mt-2"><Btn kind="primary" onClick={run} disabled={!arch || busy}>{busy ? "running…" : "run"}</Btn></div>
+          {!mode.startsWith("j") && <div className="mt-2"><Btn kind="primary" onClick={run} disabled={!arch || busy}>{busy ? "running…" : "run"}</Btn></div>}
           <ErrorBox error={err} />
         </Section>
       </>}
       center={<>
+        {mode === "jneuron" && arch && <JNeuronPanel backend={backend} layer={layer} neuron={neuron} targets={tg} />}
+        {mode === "jresidual" && <JResidualPanel backend={backend} prompt={prompt} position={position} targets={tg} />}
+        {mode === "jvalidate" && arch && <JValidatePanel backend={backend} prompt={prompt} layer={layer} nLayers={arch.n_layers} />}
         {mode === "neuron" && dir && <>
           <div className="flex items-center gap-2 text-[12px]">rank by
             <select value={rank} onChange={(e) => setRank(e.target.value as "score" | "cosine")}><option value="score">score (direct logit effect)</option><option value="cosine">cosine</option></select>
@@ -146,6 +153,16 @@ export default function Lenses() {
             <Learn>An exact scan over every neuron in every layer. For each top candidate, the target&apos;s exact rank among all vocabulary tokens in that neuron&apos;s readout is also computed.</Learn>
           </div>}
         </Section>
+        {mode.startsWith("j") && <Section title="J-lens: what is being computed">
+          <div className="num text-[12px] leading-5">
+            <div>J_l = E[∂h_final,t′ / ∂h_l,t], t′ ≥ t</div>
+            <div>d_l,t = row t of (W_U·diag γ)·J_l, normalized</div>
+            <div>readout(w) = tokens by cos(d_l,t, w)</div>
+            <div>J-share(w) = 1 − ‖ŵ − v‖², v = Σ c_j d_j, c ≥ 0, ≤ 25 terms</div>
+          </div>
+          <Learn>A neuron in block l writes into the output of block l, so it is read with J_l; the last layer uses the unembedding.
+            The lens is our own fit with Anthropic&apos;s reference code (1,000 WikiText-103 prompts × 128 tokens), not the paper&apos;s file. The paper studied larger models.</Learn>
+        </Section>}
         <Section title="Limits of the logit lens">
           <div className="text-[12px] text-muted leading-5">It only sees the direct path to the output. Neurons in early and middle layers often act through
             later layers, and their logit-lens readouts look incoherent. The paper therefore reads neurons with the J-lens (Phase 3), which follows those indirect paths to first order.</div>

@@ -80,6 +80,24 @@ UI end-to-end (headless Chromium):
   layer table all work.
 * No console errors.
 
+## Phase 3 (J-lens) — 2026-11-27
+
+`pytest -q` → **124 passed** (18 J-lens tests across 3 architectures, plus a real-model J-lens API test).
+
+| Check | Result |
+|---|---|
+| Directions = normalized rows of (W_U·diag γ)·J_l; last layer = unembedding | atol 1e-5 |
+| Readout of −w = negated cosines; top token = argmax cosine | yes |
+| J-share: nonnegative, ≤ 25 terms, ∈ [0,1], equals an independent NNLS on its support | 1e-8 |
+| J-share of a token direction = 1 with 1 term; monotone in K; batch == single | yes |
+| Random baseline seeded and reproducible; high/low classification | yes |
+| Context derivative (autograd) == symmetric finite difference | rel 1e-2 |
+| At the last layer, corpus-lens slope == exact derivative | rel 1e-4 |
+| Real model: fitted lens loads (27 × 1024², finite); residual J-lens puts " John" at rank 1 at L26; small-ε validation within 10% | yes |
+
+UI (headless Chromium): Atlas L14 n2000 shows logit-lens and J-lens chips and computes J-share (0.0587, middle,
+37.9th pct of 256). Lenses → validate renders three curves. No console errors.
+
 <details><summary>Full pytest listing</summary>
 
 ```

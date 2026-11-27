@@ -20,6 +20,7 @@ It is updated with every phase; see the [changelog](#changelog) at the bottom.
 | 8 | [Lab notebook](08-lab-notebook.md) | Dated findings from real runs, including ones that disagree with the paper |
 | 9 | [Weight editing](09-weight-editing.md) | Pruning and rewriting neurons for real: exact undo, comparison with the original, held-out perplexity, export |
 | 10 | [Neuron Atlas](10-atlas.md) | The per-neuron catalog: corpus scan, firings, readouts, search, and one-click causal tests |
+| 11 | [J-lens, J-share, validation](11-jlens-jshare.md) | Our fitted J-lens, readouts, J-share with random baselines, and how well linear predictions match real interventions |
 
 ## Notation used throughout
 
@@ -54,3 +55,4 @@ It is updated with every phase; see the [changelog](#changelog) at the bottom.
 | 2026-11-26 | 1 | Chapters 1–3, 6, 7: architecture, neuron maths, interventions, microscope and explorer, tests |
 | 2026-11-26 | 2 | Switched primary model to Qwen3-0.6B. Added chapters 4 (logit lens), 5 (Type 1 experiment) and 8 (lab notebook); updated 3, 6 and 7 |
 | 2026-11-26 | Atlas + editor | Added chapters 9 (weight editing) and 10 (Neuron Atlas) |
+| 2026-11-27 | 3 | Added chapter 11 (J-lens, J-share, validation); Atlas pages show J-lens readouts |

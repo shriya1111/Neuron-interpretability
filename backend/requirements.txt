@@ -8,3 +8,5 @@ pydantic>=2.7
 numpy>=1.26
 pytest>=8
 httpx>=0.27
+scipy>=1.11
+jlens @ git+https://github.com/anthropics/jacobian-lens@581d398613e5602a5af361e1c34d3a92ea82ba8e

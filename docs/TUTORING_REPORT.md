@@ -484,7 +484,37 @@ read its methods page.
 * The overview is a single `<canvas>`: 86k pixels are too many for DOM elements.
 * "Test it" sends the firing context as **exact token ids** (the API now accepts `token_ids`), so the test runs in precisely the context where the neuron fired.
 
-## Part J — Habits that made this work
+## Part J — Phase 3: J-lens, J-share, validation
+
+### Step 36. Use the fitted lens exactly as the reference code defines it
+* Read `jlens/hooks.py` and `lens.py` to pin down the conventions:
+  * layer $l$ = the output of block $l$ (a forward hook on the block);
+  * `transport` is `h @ J.T`, i.e. $J h$.
+* Hence token directions = rows of $(W_U\,\mathrm{diag}\,\gamma)J_l$, and a neuron in block $l$ is read with $J_l$.
+* Load lens files with `jlens.JacobianLens.load`, so the file format is never re-implemented.
+
+### Step 37. J-share
+* Nonnegative OMP with NNLS refits (`scipy.optimize.nnls`).
+* **Pitfall caught:** the first version copied the whole $151{,}936	imes1024$ direction matrix to float64 on every call
+  (about 1.2 GB). Index the chosen rows first, then convert.
+* **Suspicious-looking result checked:** the biggest coefficients weren't the top readout tokens. An independent NNLS
+  solve confirmed the result was right: refitting shifts weight to less-correlated directions. The fix was in
+  presentation (show coefficient **and** cosine), not in the maths.
+
+### Step 38. Validate against real interventions
+* For a direction, compare the observed logit change, the exact per-prompt derivative (autograd), and the corpus-lens
+  prediction (final norm linearized).
+* Tests:
+  * autograd == finite difference;
+  * at the last layer, lens == exact.
+* **Finding:** the corpus lens's magnitudes are not same-position predictions (it sums over later positions), and at
+  one layer it even had the wrong sign. Document it; don't hide it.
+
+### Step 39. Precompute readouts for the Atlas
+`python backend/scripts/precompute_jlens_readouts.py` runs for about 4 minutes on CPU and writes `readouts_LXX.npz`
+next to the lens. The Atlas picks them up automatically.
+
+## Part K — Habits that made this work
 
 1. **Read the source, not the docs.** The MLP input and the hook points came from `inspect.getsource`.
 2. **Write tests from the maths.** Then test the same thing in two independent ways (hook vs. weight edit, ablation vs. vector add).

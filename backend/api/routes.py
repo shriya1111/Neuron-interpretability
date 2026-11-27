@@ -408,3 +408,125 @@ def atlas_search(q: str, tag: str | None = None):
     if m and q.strip()[:1].upper() == "L":
         return {"kind": "id", "results": [{"layer": int(m.group(1)), "neuron": int(m.group(2))}]}
     return _wrap(lambda: {"kind": "word", "results": st.search_word(h.tokenizer, q)})
+
+
+# ---------------------------------------------------------------- Phase 3: J-lens, J-share, validation
+
+from interpretability import j_share as js_mod  # noqa: E402
+from interpretability.j_lens import get_lens  # noqa: E402
+from interpretability.validation import validate as jvalidate  # noqa: E402
+
+
+def _lens(h):
+    try:
+        return get_lens(h)
+    except FileNotFoundError as e:
+        raise HTTPException(404, f"{e}. Fit one with cloud/modal_jlens.py and download it.")
+
+
+@router.get("/lens/jacobian/status")
+def jlens_status():
+    h = _handle()
+    try:
+        lens = get_lens(h)
+        return {"available": True, "lens": lens.provenance, "layers": sorted(lens.jacobians) + [lens.final_layer]}
+    except (FileNotFoundError, ValueError) as e:
+        return {"available": False, "reason": str(e)}
+
+
+@router.post("/lens/jacobian")
+def jlens_route(req: schemas.JLensRequest):
+    h = _handle()
+
+    def go():
+        lens = _lens(h)
+        targets = [_single_token(h, s) for s in req.target_tokens]
+        ids = None
+        if req.kind == "neuron":
+            if req.layer is None or req.neuron is None:
+                raise ValueError("kind=neuron needs layer and neuron")
+            out = lens.readout(h.tokenizer, req.layer, h.adapter.output_vector(req.layer, req.neuron), req.top_k, targets)
+            out.update({"neuron": req.neuron, "vector": "w = down_proj.weight[:, neuron]"})
+        elif req.kind == "vector":
+            if req.layer is None or not req.vector or len(req.vector) != h.adapter.d_model:
+                raise ValueError(f"kind=vector needs layer and a vector of length {h.adapter.d_model}")
+            out = lens.readout(h.tokenizer, req.layer, torch.tensor(req.vector), req.top_k, targets)
+        else:
+            if not req.prompt:
+                raise ValueError("kind=residual needs a prompt")
+            ids = h.tokenizer(req.prompt, return_tensors="pt").input_ids[0]
+            res = run_forward(h, ids, CaptureSpec(points=("resid_post",), final=False))
+            T = ids.numel()
+            t = req.position + T if req.position < 0 else req.position
+            if not 0 <= t < T:
+                raise ValueError("position out of range")
+            rows = []
+            for L in range(h.adapter.n_layers):
+                lg = lens.transport_logits(res.get("resid_post", L)[t], L)
+                rows.append({"state": f"L{L}", "top_k": metrics.top_k(h.tokenizer, lg, min(req.top_k, 10)),
+                             "targets": [dict(metrics.token_info(h.tokenizer, x), **metrics.token_stats(lg, x)) for x in targets]})
+            out = {"method": "J-lens of the residual: W_U · RMSNorm_final(J_l h_l) (reference jlens `apply`)",
+                   "position": t, "tokens": metrics.tokens_of(h.tokenizer, ids), "layers": rows,
+                   "model_prediction": metrics.top_k(h.tokenizer, res.logits[t], 10), "lens": lens.provenance}
+        _hooks_clean(h)
+        out["provenance"] = provenance(h, prompt=req.prompt, input_ids=ids, params=req.model_dump(exclude={"vector"}))
+        return out
+
+    return _wrap(go)
+
+
+@router.post("/lens/j-share")
+def jshare_route(req: schemas.JShareRequest):
+    h = _handle()
+
+    def go():
+        lens = _lens(h)
+        lens.check_layer(req.layer)
+        if req.neuron is not None:
+            v = h.adapter.output_vector(req.layer, req.neuron).detach().float() * (1 if req.sign == "+" else -1)
+        elif req.vector and len(req.vector) == h.adapter.d_model:
+            v = torch.tensor(req.vector)
+        else:
+            raise ValueError("give neuron (+ sign) or a vector of length d_model")
+        D = lens.directions(req.layer)
+        r = js_mod.j_share(D, v, req.k)
+        out = {"layer": req.layer, "neuron": req.neuron, "sign": req.sign, "k": req.k, "j_share": r["j_share"],
+               "k_used": r["k_used"], "all_coefficients_nonnegative": r["all_coefficients_nonnegative"],
+               "residual_norm_sq": r["residual_norm_sq"],
+               "directions": [dict(metrics.token_info(h.tokenizer, t), coefficient=c, cosine_with_w=float(D[t] @ (v / v.norm())))
+                              for t, c in zip(r["token_ids"], r["coefficients"])],
+               "vectors": {"w_unit": (v / v.norm()).tolist(), "verbalizable": r["verbalizable"].tolist(),
+                           "unexplained": r["unexplained"].tolist()},
+               "method": "nonnegative OMP with NNLS refitting over unit J-lens directions; J-share = 1 - ||w - v||^2",
+               "lens": lens.provenance}
+        if req.n_random:
+            base = js_mod.random_baseline(lens, req.layer, n=req.n_random, k=req.k, seed=req.seed)
+            out["random_baseline"] = {"j_shares": base.tolist(), **js_mod.classify(r["j_share"], base),
+                                      "label": "paper (2,048)" if req.n_random == 2048 else f"quick ({req.n_random}) — not the paper's 2,048"}
+        out["provenance"] = provenance(h, seed=req.seed, params=req.model_dump(exclude={"vector"}))
+        return out
+
+    return _wrap(go)
+
+
+@router.post("/lens/validate")
+def jvalidate_route(req: schemas.JValidateRequest):
+    h = _handle()
+
+    def go():
+        lens = _lens(h)
+        lens.check_layer(req.layer)
+        y = _single_token(h, req.target)
+        ids = h.tokenizer(req.prompt, return_tensors="pt").input_ids[0]
+        if req.direction == "neuron":
+            if req.neuron is None:
+                raise ValueError("direction=neuron needs neuron")
+            v = h.adapter.output_vector(req.layer, req.neuron).detach().float() * (1 if req.sign == "+" else -1)
+        else:
+            v = lens.directions(req.layer)[y].clone()
+        out = jvalidate(h, lens, ids, req.layer, v, y, req.position, req.eps_rel)
+        out["hooks_remaining"] = _hooks_clean(h)
+        out["provenance"] = provenance(h, prompt=req.prompt, input_ids=ids, params=req.model_dump())
+        return out
+
+    return _wrap(go)

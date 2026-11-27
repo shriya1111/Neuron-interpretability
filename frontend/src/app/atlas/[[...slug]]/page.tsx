@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { JNeuronPanel } from "@/components/JLensPanels";
 import Plot from "@/components/Plot";
 import { Btn, ErrorBox, fmt, KV, Learn, showTok } from "@/components/ui";
 import { call, InterventionResp } from "@/lib/api";
@@ -10,7 +11,8 @@ import { useLab } from "@/lib/state";
 
 type Firing = { doc: number; position: number; domain: string; tokens: string[]; peak_index: number; activation: number; prefix_token_ids: number[] };
 type Side = { firings: Firing[]; n_open: number; fire_rate: number; threshold_q999: number; threshold_q999_excl_pos0: number;
-  strong_rate_by_domain: Record<string, number>; writes_logit_lens: { id: number; text: string; score: number }[] };
+  strong_rate_by_domain: Record<string, number>; writes_logit_lens: { id: number; text: string; score: number }[];
+  writes_jlens?: { id: number; text: string; cosine: number }[] };
 type NeuronResp = { layer: number; neuron: number; max_abs: number; plus: Side; minus: Side; notes: Record<string, string> };
 type Overview = { meta: { model_id: string; n_docs: number; positions_scanned_excl_pos0: number; corpus: string }; layers: { layer: number; max_abs: number[]; fire_rate: number[] }[] };
 type Row = { neuron: number; max_abs: number; fire_rate_pos: number; fire_rate_neg: number; top_pos: number; top_neg: number; writes_pos: string[]; writes_neg: string[] };
@@ -86,8 +88,10 @@ function SideCard({ title, sign, s }: { title: string; sign: "+" | "-"; s: Side 
           <div className="text-[11px] text-muted mb-1">Writes (logit lens of {sign}w)</div>
           <div className="flex flex-wrap gap-1">{s.writes_logit_lens.map((w) => <span key={w.id} title={`score ${fmt(w.score, 4)} · id ${w.id}`}
             className="font-mono text-[11px] border border-line rounded px-1">{showTok(w.text)}</span>)}</div>
-          <div className="text-[11px] text-muted mt-2 mb-1">J-lens readout</div>
-          <div className="text-[11px] text-muted">available once the fitted lens is downloaded (Phase 3)</div>
+          <div className="text-[11px] text-muted mt-2 mb-1">Writes (J-lens of {sign}w): through later layers</div>
+          {s.writes_jlens ? <div className="flex flex-wrap gap-1">{s.writes_jlens.map((w) => <span key={w.id} title={`cosine ${fmt(w.cosine, 4)} · id ${w.id}`}
+            className="font-mono text-[11px] border rounded px-1" style={{ borderColor: sign === "+" ? "var(--pos)" : "var(--neg)" }}>{showTok(w.text)}</span>)}</div>
+            : <div className="text-[11px] text-muted">no J-lens readouts found (run backend/scripts/precompute_jlens_readouts.py)</div>}
           {domains.length > 0 && <>
             <div className="text-[11px] text-muted mt-2">Strong firings by Pile domain (rate above q99.9)</div>
             <Plot height={130} data={[{ type: "bar", orientation: "h", x: domains.map((d) => d[1]), y: domains.map((d) => d[0]),
@@ -201,6 +205,10 @@ export default function Atlas() {
         <div className="grid grid-cols-1 gap-2 mt-2">
           <SideCard title="+ side (a > 0, adds +w)" sign="+" s={neuron.plus} />
           <SideCard title="− side (a < 0, adds −w)" sign="-" s={neuron.minus} />
+        </div>
+        <div className="border border-line rounded p-2 mt-2 bg-panel">
+          <div className="font-semibold mb-1">J-share and full J-lens readout</div>
+          <JNeuronPanel key={`${neuron.layer}-${neuron.neuron}`} backend={backend} layer={neuron.layer} neuron={neuron.neuron} targets={[]} />
         </div>
         <div className="border border-line rounded p-2 mt-2 bg-panel">
           <div className="font-semibold">Test it: does it matter where it fires?</div>

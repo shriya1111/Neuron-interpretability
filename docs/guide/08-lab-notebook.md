@@ -136,3 +136,32 @@ neuron-basis paper reads neurons with it.
 
 * **Stored:** `data/jlens/qwen3-0.6b-wikitext-n1000/` (not in git; `modal volume get neuronlab-jlens
   qwen3-0.6b-wikitext-n1000/jacobian_lens.pt …` restores it).
+
+---
+
+### 2026-11-27 — J-lens readouts vs. firings, and J-share of L14 n2000
+
+* **L14 n2000:**
+  * the **logit lens** of +w is noise ("lice", "geries", "撬");
+  * the **J-lens** of +w is coherent: **spells, magical, vampire, magic, mystical, supernatural, Witch**;
+  * but its strongest + firings are code and science tokens ("translated", "license", "-trained", "methyl"), and it
+    fires (gate open, +) on **28%** of all tokens;
+  * its −w J-lens readout is annotation words (注明, 标注, Remarks, 名单).
+* **J-share of +w = 0.059.** Against 256 random directions at L14 (p1 0.036, median 0.062, p99 0.093) that is the
+  **37.9th percentile: middle**.
+* **Interpretation:** a coherent readout alone doesn't establish what a neuron does. Its firings don't match it, and
+  its J-share is ordinary for the layer. It needs a causal test.
+
+### 2026-11-27 — Validating linear predictions (Gospel prompt, inject the J-lens direction of " John")
+
+| Layer | context slope ∂z/∂ε | corpus J-lens slope | ratio | notes |
+|---|---|---|---|---|
+| 8 | 0.0434 | 0.378 | 8.7 | the context Jacobian matches small ε (ε=−0.02‖h‖: predicted −0.026, observed −0.027) |
+| 10 | −0.0231 | 0.348 | −15.1 | **opposite sign**: locally, this direction slightly lowers " John" in this prompt |
+| 20 | 0.0252 | 0.265 | 10.5 | strong nonlinearity beyond about 0.1‖h‖ |
+
+* The context Jacobian is a correct local predictor; its tests check it against finite differences.
+* The corpus J-lens overestimates same-position effects about 9–10×, consistent with its estimator **summing over all
+  later target positions**. At L10 it predicts the wrong sign for this single context.
+* So the corpus J-lens describes typical directions across contexts. It is not this prompt's Jacobian, and it should
+  not be used to predict effect sizes.

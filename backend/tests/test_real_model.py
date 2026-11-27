@@ -133,3 +133,32 @@ def test_weight_edit_api(real):
     assert r.status_code == 200 and r.json()["reverted"] == 1
     assert torch.equal(run_plain(real, ids), base)
     assert c.get("/weights/edits").json()["modified"] is False
+
+
+def test_jlens_api(real):
+    import os
+    from interpretability.j_lens import DEFAULT_LENS
+    if not os.path.exists(os.path.join(DEFAULT_LENS, "jacobian_lens.pt")) or real.model_id != "Qwen/Qwen3-0.6B":
+        pytest.skip("fitted Qwen3-0.6B J-lens not present")
+    from main import app
+    from models.loader import manager
+    manager.set(real)
+    c = TestClient(app)
+    assert c.get("/lens/jacobian/status").json()["available"]
+    r = c.post("/lens/jacobian", json={"kind": "neuron", "layer": 14, "neuron": 2000, "top_k": 5, "target_tokens": [" magic"]})
+    assert r.status_code == 200, r.text
+    assert r.json()["plus"]["targets"][0]["rank"] < 50
+    r = c.post("/lens/jacobian", json={"kind": "residual", "prompt": "The fourth Gospel was written by the apostle",
+                                       "target_tokens": [" John"], "top_k": 5})
+    assert r.status_code == 200 and r.json()["layers"][-1]["targets"][0]["rank"] == 1
+    r = c.post("/lens/j-share", json={"layer": 14, "neuron": 2000, "sign": "+", "k": 25, "n_random": 16})
+    b = r.json()
+    assert r.status_code == 200 and 0 <= b["j_share"] <= 1 and b["k_used"] <= 25 and b["all_coefficients_nonnegative"]
+    assert len(b["random_baseline"]["j_shares"]) == 16
+    r = c.post("/lens/validate", json={"prompt": "The fourth Gospel was written by the apostle", "layer": 8,
+                                       "target": " John", "eps_rel": [-0.005, 0.005]})
+    assert r.status_code == 200, r.text
+    v = r.json()
+    for row in v["rows"]:
+        assert abs(row["context_jvp"] - row["observed"]) <= 0.1 * abs(row["observed"]) + 1e-3
+    assert v["hooks_remaining"] == 0

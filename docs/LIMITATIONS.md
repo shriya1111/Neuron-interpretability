@@ -33,9 +33,14 @@ result differ from the paper's, so that nothing is mislabelled as a reproduction
 
 ## Known differences from the paper (to be addressed in later phases)
 
-* **J-lens for small models.** No published J-lens exists for Qwen3-0.6B or Qwen2.5-0.5B. We will fit our own with
-  the reference estimator. Fewer prompts (CPU budget) give a noisier lens; the prompt count will be recorded and
-  convergence reported.
+* **J-lens for small models.** No published J-lens exists for Qwen3-0.6B or Qwen2.5-0.5B. We fitted our own for
+  Qwen3-0.6B with the reference code: 1,000 WikiText-103 prompts, converged to about 0.2% change per prompt. It isn't
+  the paper's file and the paper didn't study this model. No lens has been fitted yet for Qwen2.5-0.5B.
+* **J-share algorithm.** The paper doesn't give its pursuit hyperparameters. We use nonnegative OMP with exact NNLS
+  refits. Other pursuit variants can give slightly different J-shares.
+* **Corpus J-lens magnitudes.** The estimator sums over later target positions, so its slopes aren't same-position effect
+  sizes (about 9–10× too large on our test prompt, and with the wrong sign at one layer). Use it for directions and
+  rankings, not magnitudes.
 * **J-lens artifacts (Llama, optional).** The paper says it used "the J-lens files released with Gurnee et al. (2026)".
   The publicly available Llama-3.1-8B-Instruct J-lens (`huggingface.co/neuronpedia/jacobian-lens`) was
   fitted by Neuronpedia with Anthropic's official `jlens` code on WikiText-103: 461 prompts × 128 tokens,
