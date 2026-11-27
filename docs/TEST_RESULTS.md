@@ -98,6 +98,27 @@ UI end-to-end (headless Chromium):
 UI (headless Chromium): Atlas L14 n2000 shows logit-lens and J-lens chips and computes J-share (0.0587, middle,
 37.9th pct of 256). Lenses → validate renders three curves. No console errors.
 
+## Phase 4 + J-share census — 2026-11-27
+
+`pytest -q` → all pass (Phase 4 adds tests for the job runner, corpus helpers incl. CJK words, Type 3 verdict rules,
+paper constants, scanner split, padding-row exclusion, and the J-lens direction weight edit).
+
+| Check | Result |
+|---|---|
+| Pile-10k after excluding 4 subsets | 7,070 documents (paper: 7,070) |
+| Type 3 verdict rules (supported / contradicted / inconclusive / insufficient) | unit-tested on constructed inputs |
+| Paper constants (150, 40, 200, 20, 5, 0.07, 0.03, 3, ¼, 15, ½) | asserted |
+| Embedding padding rows never in readouts or J-share | yes |
+| J-share census on GPU vs local implementation (L14, 5 neurons × 2 signs) | max diff 6.7e-9 |
+| Job runner: done / failed / cancelled | yes |
+
+UI (headless Chromium):
+* census chart renders (15.9% / 67.0% / 17.1%);
+* Atlas shows census J-share;
+* scanner job over layers 20–22 returns 60 candidates;
+* Type 2 and Type 3 tabs load;
+* no console errors.
+
 <details><summary>Full pytest listing</summary>
 
 ```

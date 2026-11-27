@@ -15,7 +15,14 @@ All three tabs live in **Polysemanticity Lab**. Types 2, 3 and the scanner run a
 **Contexts.** For each sign, the Atlas's strongest firings of that sign, all with an **open gate**. That rules out
 closed-gate leakage by construction. Each context runs as exact token ids up to the firing token.
 
-**Words.** Each sign's words default to its whole-word J-lens readout tokens; you can override them.
+**Words.** Each sign's words default to its J-lens readout tokens with ≥ 2 letters, in any script; you can override
+them. If a sign has no usable words, the test refuses to run rather than measuring a placeholder. Words are measured by
+their first token **as they appear mid-text**: " word" for space-separated scripts, and "word" with no space for
+Chinese, Japanese and Thai.
+
+> **Bug found by a real run.** The first version only accepted " word" tokens. For L14 n2000, whose −w readout is
+> Chinese (注明, 标注…), it found no words and silently measured a placeholder. Both the picker and the CJK tokenization
+> were fixed and tested.
 
 **Per sign** (read at the firing position, the neuron zeroed at every position):
 
