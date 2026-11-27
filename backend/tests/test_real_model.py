@@ -162,3 +162,16 @@ def test_jlens_api(real):
     for row in v["rows"]:
         assert abs(row["context_jvp"] - row["observed"]) <= 0.1 * abs(row["observed"]) + 1e-3
     assert v["hooks_remaining"] == 0
+
+
+def test_access_key_guard(real, monkeypatch):
+    import main
+    from models.loader import manager
+    manager.set(real)
+    monkeypatch.setattr(main, "ACCESS_KEY", "s3cret")
+    c = TestClient(main.app)
+    assert c.get("/health").status_code == 200
+    assert c.get("/models/config").status_code == 401
+    assert c.get("/models/config", headers={"x-neuronlab-key": "wrong"}).status_code == 401
+    assert c.get("/models/config", headers={"x-neuronlab-key": "s3cret"}).status_code == 200
+    assert c.get("/models/config?key=s3cret").status_code == 200

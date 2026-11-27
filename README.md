@@ -27,6 +27,13 @@ features and tests, plus a lab notebook of findings.
 | [`docs/TEST_RESULTS.md`](docs/TEST_RESULTS.md) | Automated correctness test results per phase |
 | [`docs/LIMITATIONS.md`](docs/LIMITATIONS.md) | Differences from the paper, approximations, open issues |
 
+## Hosted version (Modal)
+
+`cloud/modal_web.py` deploys the backend (CPU, reading the Atlas, J-lens and census from the Modal volumes) and the
+frontend, each at its own `*.modal.run` URL. An access key, stored as the Modal secret `neuronlab-access`, guards every
+API call except `/health`; the frontend picks it up from `?key=` in the link. The backend runs as a single container
+that scales to zero after 15 idle minutes, so the first request after a pause takes about a minute.
+
 ## Try it yourself (local, ~15 minutes)
 
 You need Python ≥ 3.10, Node ≥ 20, about 8 GB RAM and 6 GB disk. No GPU is required for Qwen3-0.6B.

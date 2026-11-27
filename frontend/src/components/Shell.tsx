@@ -69,6 +69,9 @@ export function Shell({ children }: { children: ReactNode }) {
           <button className="border border-line rounded px-2" onClick={() => setDark(!dark)}>{dark ? "light" : "dark"}</button>
         </div>
       </header>
+      {backendError?.includes("access key") && <div className="px-3 py-2 bg-bad text-white text-[13px]">
+        This NeuronLab deployment needs an access key. Open the full link you were given (it ends in <span className="num">?key=…</span>);
+        the key is then remembered in this browser.</div>}
       <div className="flex flex-1 min-h-0">
         <nav className="w-44 shrink-0 border-r border-line bg-panel p-1 flex flex-col gap-[1px]">
           {NAV.map((n) => (

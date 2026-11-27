@@ -74,12 +74,25 @@ export type InterventionResp = {
 
 export class ApiError extends Error {}
 
+/** Access key for hosted deployments: taken from ?key= in the link once, then remembered in this browser. */
+export function accessKey(): string {
+  if (typeof window === "undefined") return "";
+  try {
+    const k = new URLSearchParams(window.location.search).get("key");
+    if (k) localStorage.setItem("nl.key", k);
+    return k || localStorage.getItem("nl.key") || "";
+  } catch { return ""; }
+}
+
 export async function call<T>(base: string, path: string, body?: unknown): Promise<T> {
   let r: Response;
   try {
+    const key = accessKey();
+    const headers: Record<string, string> = body === undefined ? {} : { "Content-Type": "application/json" };
+    if (key) headers["x-neuronlab-key"] = key;
     r = await fetch(base.replace(/\/$/, "") + path, {
       method: body === undefined ? "GET" : "POST",
-      headers: body === undefined ? undefined : { "Content-Type": "application/json" },
+      headers,
       body: body === undefined ? undefined : JSON.stringify(body),
     });
   } catch {
