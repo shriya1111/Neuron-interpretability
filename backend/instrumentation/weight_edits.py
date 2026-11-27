@@ -100,6 +100,13 @@ class WeightEditor:
             if len(ids) != 1:
                 raise ValueError(f"direction token {spec['token']!r} must be a single token, got {len(ids)}")
             return token_direction(ad, ids[0])
+        if src == "token_jlens":
+            from interpretability.j_lens import get_lens
+            ids = self.handle.tokenizer.encode(spec["token"], add_special_tokens=False)
+            if len(ids) != 1:
+                raise ValueError(f"direction token {spec['token']!r} must be a single token, got {len(ids)}")
+            layer = int(spec["layer"])  # the J-lens direction at the edited neuron's layer
+            return get_lens(self.handle).directions(layer)[ids[0]].clone()
         if src == "neuron":
             return ad.output_vector(int(spec["layer"]), int(spec["neuron"])).detach().float().cpu()
         if src == "vector":
@@ -107,7 +114,7 @@ class WeightEditor:
             if v.shape != (ad.d_model,):
                 raise ValueError(f"vector must have length {ad.d_model}")
             return v
-        raise ValueError("direction.source must be 'token', 'neuron' or 'vector'")
+        raise ValueError("direction.source must be 'token', 'token_jlens', 'neuron' or 'vector'")
 
     def _mutate(self, kind, mlp, neurons, which, params, slices, dt) -> None:
         ad = self.handle.adapter
@@ -128,7 +135,10 @@ class WeightEditor:
                     raise ValueError(f"set_output.vector must have length {ad.d_model}")
                 mlp.down_proj.weight.data[:, n] = v.to(dt)
             elif kind == "add_direction":
-                d = self._direction(params.get("direction", {}))
+                spec = dict(params.get("direction", {}))
+                if spec.get("source") == "token_jlens":
+                    spec.setdefault("layer", self._current_layer)
+                d = self._direction(spec)
                 d = d / d.norm().clamp_min(1e-12)
                 alpha = float(params.get("alpha", 1.0))
                 if params.get("alpha_relative_to_norm", False):
@@ -158,6 +168,7 @@ class WeightEditor:
         if kind in ("scale_output", "scale_input") and "factor" not in params:
             raise ValueError(f"{kind} needs params.factor")
 
+        self._current_layer = layer
         with self.handle.lock, torch.no_grad():
             slices = self._slices_for(layer, neurons, which)
             before = _checksum(slices)

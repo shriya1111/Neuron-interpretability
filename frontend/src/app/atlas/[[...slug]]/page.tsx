@@ -199,6 +199,8 @@ export default function Atlas() {
             <Link href="/microscope" onClick={() => { setLayer(neuron.layer); setNeuron(neuron.neuron); const f = neuron.plus.firings[0] ?? neuron.minus.firings[0]; if (f) setPrompt(f.tokens.join("")); }}
               className="border border-line rounded px-2 text-[12px]">open in Microscope</Link>
             <Link href="/lenses" onClick={() => { setLayer(neuron.layer); setNeuron(neuron.neuron); }} className="border border-line rounded px-2 text-[12px]">Vocabulary Lenses</Link>
+            <Link href="/weights" onClick={() => { setLayer(neuron.layer); setNeuron(neuron.neuron); }}
+              className="border border-line rounded px-2 text-[12px]" title="Open the Weight Editor with this neuron selected">edit weights…</Link>
             <Btn kind="danger" onClick={prune} title="Weight edit: zero g, u, w of this neuron (revertible)">prune (weight edit)</Btn>
           </div>
         </div>

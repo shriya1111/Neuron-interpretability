@@ -93,3 +93,20 @@ def test_last_layer_lens_equals_context_derivative(tiny, ids, lens):
     v = tiny.adapter.output_vector(tiny.adapter.n_layers - 1, 2)
     r = validate(tiny, lens, ids, tiny.adapter.n_layers - 1, v, target=4, eps_rel=[1e-3])
     assert r["dz_deps_corpus_jlens"] == pytest.approx(r["dz_deps_context"], rel=1e-4, abs=1e-6)
+
+
+def test_add_jlens_token_direction_edit(tiny, lens, monkeypatch):
+    """add_direction with source token_jlens adds alpha times the J-lens direction of the token at the edited layer."""
+    from instrumentation import weight_edits
+    import interpretability.j_lens as jl
+    monkeypatch.setattr(jl, "get_lens", lambda handle, path=None: lens)
+
+    class _T:
+        def encode(self, s, add_special_tokens=False): return [7]
+    tiny.tokenizer = _T()
+    ed = weight_edits.get_editor(tiny)
+    w0 = tiny.adapter.output_vector(1, 4).detach().clone()
+    ed.apply("add_direction", 1, [4], {"alpha": 0.7, "direction": {"source": "token_jlens", "token": "x"}})
+    assert torch.allclose(tiny.adapter.output_vector(1, 4), w0 + 0.7 * lens.directions(1)[7], atol=1e-6)
+    ed.revert_all()
+    assert torch.equal(tiny.adapter.output_vector(1, 4), w0)

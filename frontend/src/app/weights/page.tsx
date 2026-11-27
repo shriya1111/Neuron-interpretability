@@ -42,7 +42,7 @@ export default function Weights() {
   const [factor, setFactor] = useState(0);
   const [gate, setGate] = useState(true);
   const [up, setUp] = useState(true);
-  const [dirSource, setDirSource] = useState<"token" | "neuron">("token");
+  const [dirSource, setDirSource] = useState<"token" | "token_jlens" | "neuron">("token_jlens");
   const [dirToken, setDirToken] = useState(" John");
   const [srcL, setSrcL] = useState(0);
   const [srcN, setSrcN] = useState(0);
@@ -71,7 +71,7 @@ export default function Weights() {
       if (kind === "scale_input") { params.factor = factor; params.which = [gate && "gate", up && "up"].filter(Boolean); }
       if (kind === "add_direction") {
         params.alpha = alpha; params.alpha_relative_to_norm = relative;
-        params.direction = dirSource === "token" ? { source: "token", token: dirToken } : { source: "neuron", layer: srcL, neuron: srcN };
+        params.direction = dirSource === "neuron" ? { source: "neuron", layer: srcL, neuron: srcN } : { source: dirSource, token: dirToken };
       }
       if (kind === "set_output") {
         const r = await call<{ vectors: { w: number[] } }>(backend, "/neurons/inspect", { prompt: "x", layer: srcL, neuron: srcN, position: 0 });
@@ -125,9 +125,11 @@ export default function Weights() {
               <label><input type="checkbox" checked={up} onChange={(e) => setUp(e.target.checked)} /> u</label></>}
           </div>}
           {kind === "add_direction" && <div className="mt-1 flex flex-col gap-1 text-[12px]">
-            <div className="flex gap-2"><label><input type="radio" checked={dirSource === "token"} onChange={() => setDirSource("token")} /> token direction</label>
+            <div className="flex flex-col gap-0.5">
+              <label title="J-lens direction of the token at this neuron's layer: what raises the token through all later layers"><input type="radio" checked={dirSource === "token_jlens"} onChange={() => setDirSource("token_jlens")} /> token, J-lens direction (this layer)</label>
+              <label title="W_U[t] ⊙ γ_final: raises the token through the unembedding only"><input type="radio" checked={dirSource === "token"} onChange={() => setDirSource("token")} /> token, unembedding direction</label>
               <label><input type="radio" checked={dirSource === "neuron"} onChange={() => setDirSource("neuron")} /> another neuron&apos;s w</label></div>
-            {dirSource === "token" ? <input className="font-mono" value={dirToken} onChange={(e) => setDirToken(e.target.value)} />
+            {dirSource !== "neuron" ? <input className="font-mono" value={dirToken} onChange={(e) => setDirToken(e.target.value)} />
               : <div className="flex gap-1">L<input type="number" className="w-14 num" value={srcL} onChange={(e) => setSrcL(+e.target.value)} />
                 n<input type="number" className="w-20 num" value={srcN} onChange={(e) => setSrcN(+e.target.value)} /></div>}
             <div className="flex gap-2 items-center">α <input type="number" step="0.1" className="w-20 num" value={alpha} onChange={(e) => setAlpha(+e.target.value)} />
