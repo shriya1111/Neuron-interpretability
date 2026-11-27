@@ -165,3 +165,27 @@ neuron-basis paper reads neurons with it.
   later target positions**. At L10 it predicts the wrong sign for this single context.
 * So the corpus J-lens describes typical directions across contexts. It is not this prompt's Jacobian, and it should
   not be used to predict effect sizes.
+
+---
+
+### 2026-11-27 — Type 3 scanner on Qwen3-0.6B (layers 6–24): phrase halves, not two topics
+
+* **Padding rows.** The first scan was dominated by the 267 embedding padding rows (beyond the tokenizer). They were
+  then excluded everywhere (see guide chapter 12).
+* **Formatting clusters.** The second scan was dominated by groups of whitespace and punctuation tokens. The scanner now
+  requires ≥ 3 word-like tokens per group, leaving 53,106 neuron-signs scored.
+* **What the top candidates look like.** Most of the highest-scoring "two-concept" readouts are **two halves of one phrase**:
+
+| Neuron | Group A | Group B | Likely phrase |
+|---|---|---|---|
+| L24 n2084 (−) | control | Panel | control panel |
+| L22 n1669 (+) | mean | sample | sample mean |
+| L23 n1680 (+) | replacement | without | without replacement |
+| L24 n2733 (−) | boundary | initial | initial/boundary (conditions) |
+| L23 n1522 (−) | controller | view | view controller |
+| L23 n951 (−) | execution | control | execution control |
+
+  These are not Type 3 in the paper's sense: one concept spread over two tokens is not two unrelated concepts. The
+  readout-split heuristic can't tell the difference, which is why the paper confirms candidates with causal checks.
+* **A more plausible mixed candidate:** L19 n2780 (−), with months (September, June, April, August) vs. document
+  sections (Contents, Introduction). It went to the four checks; see the next entry.

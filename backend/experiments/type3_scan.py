@@ -4,7 +4,8 @@ For each neuron and sign in the chosen layers:
   readout split   the top-12 J-lens readout tokens of ±w are split in two by the sign of the leading eigenvector of
                   their centered cosine-similarity matrix (J-lens directions of the layer); score = mean within-group
                   cosine − mean between-group cosine; both groups need ≥ 3 tokens and must not be spelling variants of
-                  each other (no stripped/lowercased token appears in both groups).
+                  each other (no stripped/lowercased token appears in both groups), and each group needs ≥ 3 word-like
+                  tokens (≥ 3 letters) — punctuation/whitespace clusters are formatting, not topics (our filter).
   pair reconstruction  w is fit by least squares with the best pair among its 8 most-aligned same-layer neurons;
                   reported R² and the |cos| between the two partners (low = unrelated partners).
   firing split    the peak tokens of the Atlas's top firings of that sign (embedding rows, unit) split the same way;
@@ -60,6 +61,9 @@ def scan(handle, lens, layers: list[int], top: int = 50, progress=None) -> dict:
                 score, g = sp
                 words = [tok.decode([int(t)]).strip().lower() for t in ids]
                 if set(np.array(words)[g]) & set(np.array(words)[~g]):
+                    continue
+                wordy = np.array([sum(ch.isalpha() for ch in wd) >= 3 for wd in words])
+                if wordy[g].sum() < 3 or wordy[~g].sum() < 3:  # topics need words, not punctuation/whitespace
                     continue
                 cands.append({"layer": L, "neuron": n, "sign": s, "readout_split_score": score,
                               "group_a": [tok.decode([int(t)]) for t in ids[g]],

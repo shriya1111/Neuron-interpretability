@@ -514,7 +514,36 @@ read its methods page.
 `python backend/scripts/precompute_jlens_readouts.py` runs for about 4 minutes on CPU and writes `readouts_LXX.npz`
 next to the lens. The Atlas picks them up automatically.
 
-## Part K — Habits that made this work
+## Part K — J-share census and Phase 4
+
+### Step 40. Scale the J-share to every neuron (census) without changing the algorithm
+* **GPU and CPU split:** correlations for about 2,000 vectors per step run as one GPU matmul; the exact NNLS refits run
+  on a 16-process CPU pool (`cloud/modal_jshare_census.py`).
+* **Verify before the full run:** a one-layer smoke test matched the local implementation to $7\times10^{-9}$.
+* **Keep runs separate:** the smoke test writes to its own folder, so its smaller baseline can't be mistaken for the census.
+
+### Step 41. Catch vocabulary artifacts
+* **Symptom:** the scanner's top candidates had a group of "empty" tokens.
+* **Cause:** Qwen3-0.6B's embedding has 267 more rows than the tokenizer has tokens. Those are padding rows, not tokens.
+* **Fix:** exclude rows ≥ `len(tokenizer)` from every readout and J-share dictionary.
+* **Rerun what depended on it:** the readouts and the census (cancelled, partial output deleted, relaunched).
+* **Lesson:** a surprising top result is often an artifact. Measure how widespread it is (0.2% of readouts here) before
+  deciding what to rerun.
+
+### Step 42. Type 2 / Type 3 as background jobs
+* `api/jobs.py`: threads, progress via `job.report(p, msg)` (which also handles cancellation), and a WebSocket stream.
+* **Type 3 follows Appendix B literally:**
+  * the same corpus (7,070 docs, asserted in a test);
+  * the same reference docs as the Atlas thresholds;
+  * the paper's constants in one `PAPER` dict, which is tested;
+  * reduced sample sizes allowed but labelled.
+* **Verdict rules are unit-tested** on constructed inputs, independently of the model.
+
+### Step 43. Read the scanner's output critically
+After two artifact fixes (padding rows, whitespace clusters), the top "two-concept" readouts turned out to be
+**phrase halves** ("control" + "panel"). The scanner surfaces; only the four checks confirm.
+
+## Part L — Habits that made this work
 
 1. **Read the source, not the docs.** The MLP input and the hook points came from `inspect.getsource`.
 2. **Write tests from the maths.** Then test the same thing in two independent ways (hook vs. weight edit, ablation vs. vector add).
