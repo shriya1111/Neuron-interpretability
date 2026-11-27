@@ -189,3 +189,49 @@ neuron-basis paper reads neurons with it.
   readout-split heuristic can't tell the difference, which is why the paper confirms candidates with causal checks.
 * **A more plausible mixed candidate:** L19 n2780 (−), with months (September, June, April, August) vs. document
   sections (Contents, Introduction). It went to the four checks; see the next entry.
+
+---
+
+### 2026-11-27 — J-share census of all 86,016 Qwen3-0.6B neurons (our Figure 2)
+
+**Setup:**
+* our J-lens (1,000 WikiText prompts);
+* nonnegative OMP with exact NNLS refits, ≤ 25 directions;
+* dictionary = 151,669 tokenizer tokens (the 267 padding rows excluded);
+* 2,048 random unit directions per layer (seeded);
+* sign used = the sign with the larger open-gate activation in the Atlas (as in Appendix C.2);
+* run on Modal (A10G + 16 CPUs).
+
+**Check:** a one-layer smoke test matched the local implementation to 7e-9.
+
+| | Qwen3-0.6B | Paper (Llama-8B, Qwen3-8B/14B, OLMo-32B) |
+|---|---|---|
+| high (> random p99) | **15.9%** | 19–29% |
+| middle | **67.0%** | 56–81% |
+| low (< random p1) | **17.1%** | 1–21% |
+| median neuron ÷ median random | **0.71–1.20** (by layer) | 1.02–1.26 |
+
+**By depth (share high / low; median ratio):**
+
+| Layers | high | low | median ratio |
+|---|---|---|---|
+| L0–L8 | 4–9% | 19–29% | 0.71–0.82 |
+| L9–L16 | 5–18% | 18–32% | 0.73–0.86 |
+| L17–L19 | 15–22% | 15–17% | 0.90–0.95 |
+| **L20–L24** | **27–40%** | **1–4%** | **1.11–1.20** |
+| L25–L27 | 15–29% | 1–9% | 0.96–1.01 |
+
+**Interpretation:**
+* **The late layers (L20–24) match the paper's picture:** many high-J-share neurons, almost no low ones, and neurons
+  more verbalizable than random directions.
+* **The early and middle layers do not:** the median neuron is *less* verbalizable than a random direction, and a
+  quarter are "low".
+* **This is a disagreement with the paper's headline (median ratio 1.02–1.26) for this model.** Candidate explanations,
+  none tested yet:
+  1. small models write more non-verbal, structural directions early;
+  2. our lens (1,000 WikiText prompts) differs from the reference fits;
+  3. early-layer J-lens directions span a low-rank subspace (noted by the J-lens paper), so random directions and
+     neurons are compared in a space the lens barely covers;
+  4. the paper notes that low-J-share neurons tend to align with later attention queries (Appendix A.3), which we
+     haven't measured.
+* **Next test:** query alignment (A.3) for the low-J-share neurons.

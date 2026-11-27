@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { JNeuronPanel, JResidualPanel, JValidatePanel } from "@/components/JLensPanels";
+import { JCensusPanel, JNeuronPanel, JResidualPanel, JValidatePanel } from "@/components/JLensPanels";
 import { ModelPanel } from "@/components/ModelPanel";
 import Plot from "@/components/Plot";
 import { Workspace } from "@/components/Shell";
@@ -19,7 +19,7 @@ type ResidResp = { method: string; position: number; tokens: Tok[]; note: string
 type SearchResp = { method: string; candidates: { layer: number; neuron: number; sign: string; cosine: number; score: number;
   rank_of_target: number; readout_top5: string[] }[] };
 
-type Mode = "neuron" | "residual" | "search" | "jneuron" | "jresidual" | "jvalidate";
+type Mode = "neuron" | "residual" | "search" | "jneuron" | "jresidual" | "jvalidate" | "jcensus";
 
 export default function Lenses() {
   const { backend, arch, prompt, setPrompt, layer, setLayer, neuron, setNeuron, position, setPosition } = useLab();
@@ -71,6 +71,7 @@ export default function Lenses() {
             <label><input type="radio" checked={mode === "jneuron"} onChange={() => setMode("jneuron")} /> neuron: J-lens readout + J-share</label>
             <label><input type="radio" checked={mode === "jresidual"} onChange={() => setMode("jresidual")} /> residual: J-lens across depth</label>
             <label><input type="radio" checked={mode === "jvalidate"} onChange={() => setMode("jvalidate")} /> validate linear predictions</label>
+            <label><input type="radio" checked={mode === "jcensus"} onChange={() => setMode("jcensus")} /> J-share census, all neurons (Figure 2)</label>
           </div>
         </Section>
         <Section title="Inputs">
@@ -93,6 +94,7 @@ export default function Lenses() {
       center={<>
         {mode === "jneuron" && arch && <JNeuronPanel backend={backend} layer={layer} neuron={neuron} targets={tg} />}
         {mode === "jresidual" && <JResidualPanel backend={backend} prompt={prompt} position={position} targets={tg} />}
+        {mode === "jcensus" && <JCensusPanel backend={backend} />}
         {mode === "jvalidate" && arch && <JValidatePanel backend={backend} prompt={prompt} layer={layer} nLayers={arch.n_layers} />}
         {mode === "neuron" && dir && <>
           <div className="flex items-center gap-2 text-[12px]">rank by

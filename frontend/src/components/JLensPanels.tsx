@@ -160,3 +160,38 @@ export function JValidatePanel({ backend, prompt, layer, nLayers }: { backend: s
     </Section>
   );
 }
+
+type Census = { layers: { layer: number; frac_high: number; frac_middle: number; frac_low: number; median_used: number; median_random: number; ratio_median: number }[];
+  overall: { high: number; middle: number; low: number; n: number }; paper_reference: Record<string, string>; n_random: number; k: number; dictionary: string };
+
+export function JCensusPanel({ backend }: { backend: string }) {
+  const [c, setC] = useState<Census | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  async function load() { setErr(null); try { setC(await call<Census>(backend, "/lens/j-share/census")); } catch (e) { setErr((e as Error).message); } }
+  return (
+    <div className="flex flex-col gap-2">
+      <div><Btn kind="primary" onClick={load}>load J-share census</Btn></div>
+      <ErrorBox error={err} />
+      {c && <>
+        <Section title={`J-share census — ${c.overall.n.toLocaleString()} neurons (sign used), ${c.n_random.toLocaleString()} random directions per layer`}>
+          <Plot height={300} data={[
+            { type: "bar", name: "high (> random p99)", x: c.layers.map((l) => l.layer), y: c.layers.map((l) => l.frac_high), marker: { color: "#16a34a" } },
+            { type: "bar", name: "middle", x: c.layers.map((l) => l.layer), y: c.layers.map((l) => l.frac_middle), marker: { color: "#cbd5e1" } },
+            { type: "bar", name: "low (< random p1)", x: c.layers.map((l) => l.layer), y: c.layers.map((l) => l.frac_low), marker: { color: "#dc2626" } }]}
+            layout={{ barmode: "stack", xaxis: { title: { text: "layer" } }, yaxis: { title: { text: "share of neurons" }, range: [0, 1] }, margin: { l: 50, r: 8, t: 8, b: 40 }, legend: { orientation: "h", y: -0.25 } }} />
+          <Plot height={220} data={[{ type: "scatter", mode: "lines+markers", name: "median neuron / median random", x: c.layers.map((l) => l.layer), y: c.layers.map((l) => l.ratio_median) }]}
+            layout={{ shapes: [{ type: "line", xref: "paper", x0: 0, x1: 1, y0: 1, y1: 1, line: { dash: "dot", color: "#64748b" } }],
+              xaxis: { title: { text: "layer" } }, yaxis: { title: { text: "J-share ratio" } }, margin: { l: 50, r: 8, t: 8, b: 40 } }} />
+          <div className="grid grid-cols-2 gap-x-6 text-[12px]">
+            <KV k="overall high / middle / low" v={`${fmt(100 * c.overall.high, 1)}% / ${fmt(100 * c.overall.middle, 1)}% / ${fmt(100 * c.overall.low, 1)}%`} />
+            <KV k="paper (4 larger models)" v={`${c.paper_reference.high} / ${c.paper_reference.middle} / ${c.paper_reference.low}`} />
+            <KV k="median ratio range" v={`${fmt(Math.min(...c.layers.map((l) => l.ratio_median)), 2)}–${fmt(Math.max(...c.layers.map((l) => l.ratio_median)), 2)}`} />
+            <KV k="paper median ratio" v={c.paper_reference.median_ratio} />
+          </div>
+          <Learn>Our version of the paper&apos;s Figure 2a/b on Qwen3-0.6B, with our own J-lens. Late layers resemble the paper (many high, few low);
+            early and middle layers do not (median neuron below random). Dictionary: {c.dictionary}; up to {c.k} directions per vector.</Learn>
+        </Section>
+      </>}
+    </div>
+  );
+}

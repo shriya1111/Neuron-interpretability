@@ -12,7 +12,8 @@ import { useLab } from "@/lib/state";
 type Firing = { doc: number; position: number; domain: string; tokens: string[]; peak_index: number; activation: number; prefix_token_ids: number[] };
 type Side = { firings: Firing[]; n_open: number; fire_rate: number; threshold_q999: number; threshold_q999_excl_pos0: number;
   strong_rate_by_domain: Record<string, number>; writes_logit_lens: { id: number; text: string; score: number }[];
-  writes_jlens?: { id: number; text: string; cosine: number }[] };
+  writes_jlens?: { id: number; text: string; cosine: number }[];
+  j_share?: { value: number; class: string; random_p1: number; random_p99: number; sign_used?: boolean } };
 type NeuronResp = { layer: number; neuron: number; max_abs: number; plus: Side; minus: Side; notes: Record<string, string> };
 type Overview = { meta: { model_id: string; n_docs: number; positions_scanned_excl_pos0: number; corpus: string }; layers: { layer: number; max_abs: number[]; fire_rate: number[] }[] };
 type Row = { neuron: number; max_abs: number; fire_rate_pos: number; fire_rate_neg: number; top_pos: number; top_neg: number; writes_pos: string[]; writes_neg: string[] };
@@ -76,7 +77,8 @@ function SideCard({ title, sign, s }: { title: string; sign: "+" | "-"; s: Side 
     <div className="border border-line rounded p-2 bg-panel">
       <div className="flex items-baseline justify-between">
         <div className="font-semibold" style={{ color: sign === "+" ? "var(--pos)" : "var(--neg)" }}>{title}</div>
-        <div className="num text-[11px] text-muted">fires (gate open) on {fmt(100 * s.fire_rate, 3)}% of tokens · q99.9 = {fmt(s.threshold_q999_excl_pos0, 3)}</div>
+        <div className="num text-[11px] text-muted">fires (gate open) on {fmt(100 * s.fire_rate, 3)}% of tokens · q99.9 = {fmt(s.threshold_q999_excl_pos0, 3)}
+          {s.j_share && <> · J-share <b style={{ color: s.j_share.class === "high" ? "var(--ok)" : s.j_share.class === "low" ? "var(--bad)" : "var(--warn)" }}>{fmt(s.j_share.value, 3)} ({s.j_share.class})</b>{s.j_share.sign_used ? " · sign used" : ""}</>}</div>
       </div>
       <div className="grid grid-cols-[minmax(0,3fr)_minmax(0,2fr)] gap-3 mt-1">
         <div>

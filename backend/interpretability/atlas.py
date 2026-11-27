@@ -106,6 +106,15 @@ class AtlasStore:
                 "writes_logit_lens": [{"id": int(t), "text": dec(int(t)), "score": float(sc)}
                                       for t, sc in zip(z[f"read_{s}_ids"][n].tolist(), z[f"read_{s}_score"][n].tolist())],
             }
+        cz = _census(L)
+        if cz is not None:
+            names = {0: "low", 1: "middle", 2: "high"}
+            p1, p99 = float(cz["p1"]), float(cz["p99"])
+            for s_, key in (("pos", "plus"), ("neg", "minus")):
+                v = float(cz["js_pos" if s_ == "pos" else "js_neg"][n])
+                sides[s_]["j_share"] = {"value": v, "class": "high" if v > p99 else "low" if v < p1 else "middle",
+                                        "random_p1": p1, "random_p99": p99}
+            sides["pos" if bool(cz["sign_used_pos"][n]) else "neg"]["j_share"]["sign_used"] = True
         jr = _jlens_readouts(L)
         if jr is not None:
             for s, key in (("pos", "plus"), ("neg", "minus")):
@@ -152,6 +161,19 @@ def _jlens_readouts_cached(path: str, L: int):
         return None
     z = np.load(f)
     return {k: z[k] for k in z.files}
+
+
+@lru_cache(maxsize=64)
+def _census_cached(path: str, L: int):
+    f = os.path.join(path, "census", f"L{L:02d}.npz")
+    if not os.path.exists(f):
+        return None
+    z = np.load(f)
+    return {k: z[k] for k in z.files}
+
+
+def _census(L: int):
+    return _census_cached(_jlens_dir(), L)
 
 
 def _jlens_readouts(L: int):

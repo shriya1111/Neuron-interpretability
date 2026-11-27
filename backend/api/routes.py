@@ -616,3 +616,26 @@ async def exp_stream(ws: WebSocket, job_id: str):
         pass
     finally:
         await ws.close()
+
+
+@router.get("/lens/j-share/census")
+def jshare_census():
+    import json
+    import os
+
+    import numpy as np
+    h = _handle()
+    lens = _lens(h)
+    d = os.path.join(lens.path, "census")
+    f = os.path.join(d, "summary.json")
+    if not os.path.exists(f):
+        raise HTTPException(404, "no census; run cloud/modal_jshare_census.py and download it")
+    s = json.load(open(f))
+    if s.get("model_id") != h.model_id:
+        raise HTTPException(409, f"census is for {s.get('model_id')}")
+    cls = np.concatenate([np.load(os.path.join(d, f"L{r['layer']:02d}.npz"))["cls"] for r in sorted(s["layers"], key=lambda r: r["layer"])])
+    s["layers"] = sorted(s["layers"], key=lambda r: r["layer"])
+    s["overall"] = {"high": float((cls == 2).mean()), "middle": float((cls == 1).mean()), "low": float((cls == 0).mean()), "n": int(cls.size)}
+    s["paper_reference"] = {"high": "19-29%", "middle": "56-81%", "low": "1-21%", "median_ratio": "1.02-1.26",
+                            "models": "Llama-3.1-8B-Instruct, Qwen3-8B, Qwen3-14B, OLMo-3-32B"}
+    return s
