@@ -27,6 +27,75 @@ features and tests, plus a lab notebook of findings.
 | [`docs/TEST_RESULTS.md`](docs/TEST_RESULTS.md) | Automated correctness test results per phase |
 | [`docs/LIMITATIONS.md`](docs/LIMITATIONS.md) | Differences from the paper, approximations, open issues |
 
+## Try it yourself (local, ~15 minutes)
+
+You need Python ≥ 3.10, Node ≥ 20, about 8 GB RAM and 6 GB disk. No GPU is required for Qwen3-0.6B.
+
+**1. Get the code** (all work is on the `phase-1-neuron-microscope` branch):
+
+```bash
+git clone -b phase-1-neuron-microscope https://github.com/shriya1111/neuron-lens.git
+```
+
+```bash
+cd neuron-lens
+```
+
+**2. Install the backend:**
+
+```bash
+python -m venv .venv
+```
+
+```bash
+source .venv/bin/activate
+```
+
+```bash
+pip install -r backend/requirements.txt modal
+```
+
+**3. Download the precomputed data** (Atlas, J-lens, census) from the Modal account that made it:
+
+```bash
+modal token set --token-id <id> --token-secret <secret>
+```
+
+```bash
+./scripts/fetch_data.sh
+```
+
+```bash
+cd backend && python scripts/precompute_jlens_readouts.py && cd ..
+```
+
+**4. Start the backend.** The first start downloads Qwen3-0.6B (~1.5 GB):
+
+```bash
+cd backend && NEURONLAB_PRELOAD=Qwen/Qwen3-0.6B uvicorn main:app --port 8000
+```
+
+**5. In a second terminal, start the frontend:**
+
+```bash
+cd neuron-lens/frontend && npm install && npm run dev
+```
+
+**6. Open http://localhost:3000.**
+
+Without step 3 everything still works except the Atlas, J-lens and J-share features, which say what's missing.
+
+### What to try first
+
+* **Neuron Atlas:** search `John`, open `L21 n29`, and compare its readout with what it actually fires on.
+* **Neuron Atlas:** `L14 n2000`. The logit lens shows noise, the J-lens shows spells/magic; click **compute J-share**.
+* **Vocabulary Lenses → J-share census:** our version of the paper's Figure 2.
+* **Vocabulary Lenses → validate linear predictions:** three curves showing where the linear picture holds.
+* **Neuron Microscope:** pick any neuron and token, drag the override slider, and watch the predictions change.
+* **Weight Editor:** prune `L27 n81`, click **compare** (held-out perplexity rises about 1%), then **revert all**.
+* **Polysemanticity Lab:** Type 1 with the default "John" contexts, Type 2 on `L14 n2000`, and the scanner on layers 18–22.
+* **Learning / research** toggle (top right): learning mode adds explanations.
+
 ## What Phase 1 does
 
 * **Model Explorer:** the actual loaded architecture, with dimensions read from the checkpoint:
