@@ -65,6 +65,7 @@ def census(model_id: str, lens_tag: str, atlas_tag: str, k: int = 25, n_random: 
     J = {int(a): b.float() for a, b in lens.jacobians.items()}
     nL = len(model.model.layers)
     WUg = (model.lm_head.weight.detach().float() * model.model.norm.weight.detach().float()).to(dev)
+    n_valid = len(transformers.AutoTokenizer.from_pretrained(model_id))  # rows beyond the tokenizer are padding
     out_dir = f"/jl/{lens_tag}/{out_name}"
     os.makedirs(out_dir, exist_ok=True)
     pool = mp.get_context("fork").Pool(16)
@@ -105,6 +106,7 @@ def census(model_id: str, lens_tag: str, atlas_tag: str, k: int = 25, n_random: 
         return 1.0 - (R * R).sum(0)
 
     summary = {"model_id": model_id, "lens": lens_tag, "atlas": atlas_tag, "k": k, "n_random": n_random, "seed": seed,
+               "dictionary": f"{n_valid} tokenizer tokens (embedding padding rows excluded)",
                "algorithm": "nonnegative OMP + scipy NNLS refit (same as backend/interpretability/j_share.py)", "layers": []}
     todo = layers if layers is not None else list(range(nL))
     for L in todo:
@@ -113,6 +115,7 @@ def census(model_id: str, lens_tag: str, atlas_tag: str, k: int = 25, n_random: 
             continue
         D = WUg if L == nL - 1 else WUg @ J[L].to(dev)
         D = D / D.norm(dim=1, keepdim=True).clamp_min(1e-12)
+        D[n_valid:] = 0.0  # padding rows are not tokens: never selected (same as the backend)
         Dc = D.cpu().numpy()
         Wd = model.model.layers[L].mlp.down_proj.weight.detach().double().numpy()
         Wn = Wd / np.linalg.norm(Wd, axis=0, keepdims=True)

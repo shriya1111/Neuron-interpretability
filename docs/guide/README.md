@@ -21,6 +21,7 @@ It is updated with every phase; see the [changelog](#changelog) at the bottom.
 | 9 | [Weight editing](09-weight-editing.md) | Pruning and rewriting neurons for real: exact undo, comparison with the original, held-out perplexity, export |
 | 10 | [Neuron Atlas](10-atlas.md) | The per-neuron catalog: corpus scan, firings, readouts, search, and one-click causal tests |
 | 11 | [J-lens, J-share, validation](11-jlens-jshare.md) | Our fitted J-lens, readouts, J-share with random baselines, and how well linear predictions match real interventions |
+| 12 | [Polysemanticity Types 2 & 3](12-polysemanticity-types-2-3.md) | Two signs vs. one sign two concepts, the four Appendix B checks, the candidate scanner, background jobs |
 
 ## Notation used throughout
 

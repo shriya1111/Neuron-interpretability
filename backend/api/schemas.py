@@ -159,3 +159,40 @@ class JValidateRequest(BaseModel):
     neuron: int | None = None
     sign: Literal["+", "-"] = "+"
     eps_rel: list[float] | None = None
+
+
+class TopicIn(BaseModel):
+    label: str
+    terms: list[str] = Field(..., min_length=1, description="search terms selecting topic documents in Pile-10k")
+    words: list[str] = Field(..., min_length=1, description="concept words whose first tokens are measured")
+    control_words: list[str] = Field(default_factory=list, description="other members of this topic's category (check 3)")
+
+
+class Type3Request(BaseModel):
+    layer: int
+    neuron: int
+    sign: Literal["+", "-"]
+    topic_a: TopicIn
+    topic_b: TopicIn
+    max_topic_docs: int = Field(150, ge=5, le=150)
+    n_ablate_docs: int = Field(40, ge=1, le=40)
+    n_random_words: int = Field(200, ge=10, le=200)
+    n_random_dirs: int = Field(20, ge=2, le=50)
+    n_reference_docs: int = Field(200, ge=20, le=200)
+    seed: int = 0
+
+
+class Type2Request(BaseModel):
+    layer: int
+    neuron: int
+    words_plus: list[str] | None = None
+    words_minus: list[str] | None = None
+    n_contexts: int = Field(12, ge=1, le=24)
+    n_random_dirs: int = Field(20, ge=2, le=50)
+    n_random_words: int = Field(200, ge=10, le=200)
+    seed: int = 0
+
+
+class ScanRequest(BaseModel):
+    layers: list[int] = Field(..., min_length=1)
+    top: int = Field(50, ge=1, le=500)

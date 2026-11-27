@@ -24,12 +24,10 @@ ap.add_argument("--chunk", type=int, default=512)
 a = ap.parse_args()
 torch.set_num_threads(os.cpu_count() or 4)
 h = load_model(a.model_id, device="cpu", dtype="float32")
-lens = JLens(h.adapter, cache_layers=1)
+lens = JLens(h.adapter, cache_layers=1, n_valid_tokens=len(h.tokenizer))
 t0 = time.time()
 for L in range(h.adapter.n_layers):
     out = os.path.join(lens.path, f"readouts_L{L:02d}.npz")
-    if os.path.exists(out):
-        continue
     D = lens.directions(L)
     Wd = h.adapter.mlp(L).down_proj.weight.detach().float()
     Wd = Wd / Wd.norm(dim=0, keepdim=True).clamp_min(1e-12)
@@ -37,8 +35,9 @@ for L in range(h.adapter.n_layers):
     with torch.no_grad():
         for c in range(0, Wd.shape[1], a.chunk):
             C = D @ Wd[:, c:c + a.chunk]
-            vp, ip = C.topk(a.k, dim=0)
-            vn, inn = (-C).topk(a.k, dim=0)
+            C[lens.n_valid:] = float("nan")
+            vp, ip = torch.nan_to_num(C, nan=-2.0).topk(a.k, dim=0)
+            vn, inn = torch.nan_to_num(-C, nan=-2.0).topk(a.k, dim=0)
             res["pos_ids"].append(ip.T.numpy()); res["pos_cos"].append(vp.T.numpy())
             res["neg_ids"].append(inn.T.numpy()); res["neg_cos"].append(vn.T.numpy())
     np.savez_compressed(out, **{k: np.concatenate(v) for k, v in res.items()})

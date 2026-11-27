@@ -5,6 +5,7 @@ import { ModelPanel } from "@/components/ModelPanel";
 import Plot from "@/components/Plot";
 import { Workspace } from "@/components/Shell";
 import { Btn, ErrorBox, Expand, fmt, KV, Learn, Section, showTok, TokenStrip, TopKTable } from "@/components/ui";
+import { ScanView, Type2View, Type3View } from "@/components/PolyViews";
 import { call, Tok, TopK } from "@/lib/api";
 import { useLab } from "@/lib/state";
 
@@ -29,7 +30,7 @@ const DEFAULT: Ctx[] = [
   { label: "Beatles", prompt: "The Beatles were Paul McCartney, George Harrison, Ringo Starr and", target: " John" },
 ];
 
-export default function Polysemanticity() {
+function Type1View() {
   const { backend, arch, layer, setLayer, neuron, setNeuron } = useLab();
   const [ctx, setCtx] = useState<Ctx[]>(DEFAULT);
   const [sign, setSign] = useState<"+" | "-">("-");
@@ -89,7 +90,6 @@ export default function Polysemanticity() {
           <div className="mt-2"><Btn kind="primary" onClick={runExp} disabled={!!busy}>{busy === "experiment" ? "running…" : "run experiment"}</Btn></div>
         </Section>}
         <ErrorBox error={err} />
-        <Section title="Type 2 / Type 3"><div className="text-[12px] text-muted">Phase 4 — not built yet.</div></Section>
       </>}
       center={<>
         {!res && <div className="text-muted text-[12px] p-2">Scan for candidates or enter a neuron, then run the experiment. Each context runs one baseline pass, one ablation
@@ -144,5 +144,20 @@ export default function Polysemanticity() {
         {res && <Section title="Provenance"><Expand label="show"><pre className="text-[10px] num whitespace-pre-wrap break-all">{JSON.stringify(res.provenance, null, 1)}</pre></Expand></Section>}
       </>}
     />
+  );
+}
+
+const TABS = { type1: "Type 1: one concept, many inputs", type2: "Type 2: two signs, two concepts", type3: "Type 3: one sign, two concepts (4 checks)", scan: "Type 3 scanner (exploratory)" } as const;
+
+export default function Polysemanticity() {
+  const [tab, setTab] = useState<keyof typeof TABS>("type1");
+  return (
+    <div className="h-full flex flex-col">
+      <div className="flex gap-1 px-2 pt-1 border-b border-line shrink-0">
+        {Object.entries(TABS).map(([k, v]) => <button key={k} onClick={() => setTab(k as keyof typeof TABS)}
+          className={`px-2 py-1 text-[12px] rounded-t ${tab === k ? "bg-panel border border-b-0 border-line font-medium" : "text-muted"}`}>{v}</button>)}
+      </div>
+      <div className="flex-1 min-h-0">{tab === "type1" ? <Type1View /> : tab === "type2" ? <Type2View /> : tab === "type3" ? <Type3View /> : <ScanView />}</div>
+    </div>
   );
 }

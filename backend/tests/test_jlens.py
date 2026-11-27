@@ -110,3 +110,20 @@ def test_add_jlens_token_direction_edit(tiny, lens, monkeypatch):
     assert torch.allclose(tiny.adapter.output_vector(1, 4), w0 + 0.7 * lens.directions(1)[7], atol=1e-6)
     ed.revert_all()
     assert torch.equal(tiny.adapter.output_vector(1, 4), w0)
+
+
+def test_padding_rows_excluded(tiny, tmp_path):
+    """Embedding rows beyond the tokenizer are padding: never in readouts, never chosen by J-share."""
+    g = torch.Generator().manual_seed(5)
+    d = tiny.adapter.d_model
+    jac = {L: torch.eye(d) + 0.3 * torch.randn(d, d, generator=g) for L in range(tiny.adapter.n_layers - 1)}
+    nv = 400  # pretend the tokenizer has 400 of the 512 rows
+    lens = JLens(tiny.adapter, path=str(tmp_path), jacobians=jac, n_valid_tokens=nv)
+    D = lens.directions(1)
+    assert torch.all(D[nv:] == 0)
+    w = D[450].clone() if D[450].abs().sum() > 0 else torch.randn(d, generator=g)
+    w = (lens.WUg @ jac[1])[450]  # a vector that IS a padding row's direction
+    r = lens.readout(_Tok(), 1, w, k=20)
+    assert all(t["id"] < nv for t in r["plus"]["top"] + r["minus"]["top"])
+    js = j_share(D, w, k=25)
+    assert all(t < nv for t in js["token_ids"])

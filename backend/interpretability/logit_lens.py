@@ -55,8 +55,14 @@ def direction_readout(tokenizer, adapter, v: torch.Tensor, k: int = 20, targets:
     s = direction_scores(adapter, v)
     cos = s / (folded(adapter)["row_norms"].cpu() * v.float().norm().cpu()).clamp_min(1e-30)
 
+    nv = len(tokenizer) if hasattr(tokenizer, "__len__") else s.shape[0]
+
     def side(sign: int) -> dict:
         ss, cc = sign * s, sign * cos
+        if nv < ss.shape[0]:  # padding rows beyond the tokenizer are not tokens
+            ss, cc = ss.clone(), cc.clone()
+            ss[nv:] = -float("inf")
+            cc[nv:] = -float("inf")
         top = ss.topk(k)
         topc = cc.topk(k)
         return {
@@ -143,6 +149,8 @@ def neuron_search(tokenizer, adapter, tid: int, sign: str = "+", top: int = 30, 
     for cos_v, s_v, L, i in cands:
         w = sg * adapter.output_vector(L, i).detach()
         scores = direction_scores(adapter, w)
+        if hasattr(tokenizer, "__len__") and len(tokenizer) < scores.shape[0]:
+            scores[len(tokenizer):] = -float("inf")
         out.append({"layer": L, "neuron": i, "sign": sign, "cosine": cos_v, "score": s_v,
                     "rank_of_target": _rank_of(scores, tid),
                     "readout_top5": [metrics.token_info(tokenizer, j)["text"] for j in scores.topk(5).indices.tolist()]})

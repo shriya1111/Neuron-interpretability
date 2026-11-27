@@ -28,8 +28,11 @@ DEFAULT_LENS = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..
 
 
 class JLens:
-    def __init__(self, adapter, path: str = DEFAULT_LENS, cache_layers: int = 3, jacobians: dict | None = None):
+    def __init__(self, adapter, path: str = DEFAULT_LENS, cache_layers: int = 3, jacobians: dict | None = None,
+                 n_valid_tokens: int | None = None):
         self.adapter = adapter
+        # Rows of W_U beyond the tokenizer's vocabulary are unused padding, not tokens: excluded everywhere.
+        self.n_valid = n_valid_tokens if n_valid_tokens is not None else adapter.vocab_size
         self.path = path
         if jacobians is None:
             f = os.path.join(path, "jacobian_lens.pt")
@@ -69,6 +72,9 @@ class JLens:
             return self._dirs[layer]
         D = self.WUg if layer == self.final_layer else self.WUg @ self.jacobians[layer]
         D = D / D.norm(dim=1, keepdim=True).clamp_min(1e-12)
+        if self.n_valid < D.shape[0]:
+            D = D.clone()
+            D[self.n_valid:] = 0.0  # padding rows: never selected (cosine 0, excluded from readouts below)
         self._dirs[layer] = D
         while len(self._dirs) > self._cache_layers:
             self._dirs.popitem(last=False)
@@ -82,6 +88,7 @@ class JLens:
 
         def side(sg: float) -> dict:
             c = sg * cos
+            c[self.n_valid:] = -float("inf")
             top = c.topk(k)
             return {"top": [dict(metrics.token_info(tokenizer, i), cosine=float(c[i]), rank=r + 1)
                             for r, i in enumerate(top.indices.tolist())],
@@ -107,7 +114,7 @@ def get_lens(handle, path: str | None = None) -> JLens:
     path = path or os.environ.get("NEURONLAB_JLENS", DEFAULT_LENS)
     key = (id(handle.model), path)
     if key not in _LENSES:
-        lens = JLens(handle.adapter, path)
+        lens = JLens(handle.adapter, path, n_valid_tokens=len(handle.tokenizer))
         mid = lens.config.get("model_id")
         if mid and mid != handle.model_id:
             raise ValueError(f"J-lens was fitted for {mid}, but {handle.model_id} is loaded")

@@ -530,3 +530,89 @@ def jvalidate_route(req: schemas.JValidateRequest):
         return out
 
     return _wrap(go)
+
+
+# ---------------------------------------------------------------- Phase 4: background experiments (Types 2, 3, scanner)
+
+import asyncio  # noqa: E402
+
+from fastapi import WebSocket, WebSocketDisconnect  # noqa: E402
+
+from api.jobs import jobs  # noqa: E402
+from experiments import type2 as type2_mod  # noqa: E402
+from experiments import type3 as type3_mod  # noqa: E402
+from experiments import type3_scan  # noqa: E402
+
+
+def _submit(kind: str, req, fn):
+    h = _handle()
+    params = req.model_dump()
+
+    def work(job):
+        out = fn(h, job)
+        out["hooks_remaining"] = count_hooks(h.model)
+        out["provenance"] = provenance(h, seed=params.get("seed"), params=params)
+        return out
+    j = jobs.submit(kind, params, work)
+    return {"job_id": j.id, "status": j.status, "poll": f"/experiments/{j.id}", "stream": f"/experiments/{j.id}/stream"}
+
+
+@router.post("/experiments/type3")
+def exp_type3(req: schemas.Type3Request):
+    return _submit("type3", req, lambda h, job: type3_mod.run(
+        h, req.layer, req.neuron, req.sign, req.topic_a.model_dump(), req.topic_b.model_dump(),
+        max_topic_docs=req.max_topic_docs, n_ablate_docs=req.n_ablate_docs, n_random_words=req.n_random_words,
+        n_random_dirs=req.n_random_dirs, n_reference_docs=req.n_reference_docs, seed=req.seed, progress=job.report))
+
+
+@router.post("/experiments/type2")
+def exp_type2(req: schemas.Type2Request):
+    return _submit("type2", req, lambda h, job: type2_mod.run(
+        h, req.layer, req.neuron, req.words_plus, req.words_minus, req.n_contexts, req.n_random_dirs,
+        req.n_random_words, req.seed, progress=job.report))
+
+
+@router.post("/experiments/type3/scan")
+def exp_type3_scan(req: schemas.ScanRequest):
+    return _submit("type3_scan", req, lambda h, job: type3_scan.scan(h, get_lens(h), req.layers, req.top, progress=job.report))
+
+
+@router.get("/experiments")
+def exp_list():
+    return {"jobs": [j.public(include_result=False) for j in sorted(jobs.jobs.values(), key=lambda j: -j.created)]}
+
+
+@router.get("/experiments/{job_id}")
+def exp_get(job_id: str):
+    try:
+        return jobs.get(job_id).public()
+    except KeyError as e:
+        raise HTTPException(404, str(e))
+
+
+@router.post("/experiments/{job_id}/cancel")
+def exp_cancel(job_id: str):
+    try:
+        return jobs.cancel(job_id).public(include_result=False)
+    except KeyError as e:
+        raise HTTPException(404, str(e))
+
+
+@router.websocket("/experiments/{job_id}/stream")
+async def exp_stream(ws: WebSocket, job_id: str):
+    await ws.accept()
+    try:
+        while True:
+            try:
+                j = jobs.get(job_id)
+            except KeyError:
+                await ws.send_json({"error": f"no job {job_id}"})
+                break
+            await ws.send_json(j.public(include_result=j.status in ("done", "failed", "cancelled")))
+            if j.status in ("done", "failed", "cancelled"):
+                break
+            await asyncio.sleep(0.5)
+    except WebSocketDisconnect:
+        pass
+    finally:
+        await ws.close()

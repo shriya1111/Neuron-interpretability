@@ -12,7 +12,7 @@ export const NAV = [
   { href: "/explorer", label: "Model Explorer", phase: 1, status: "built" },
   { href: "/microscope", label: "Neuron Microscope", phase: 1, status: "built" },
   { href: "/lenses", label: "Vocabulary Lenses", phase: 3, status: "built" },
-  { href: "/polysemanticity", label: "Polysemanticity Lab", phase: 4, status: "partial" },
+  { href: "/polysemanticity", label: "Polysemanticity Lab", phase: 4, status: "built" },
   { href: "/weights", label: "Weight Editor", phase: 8, status: "built" },
   { href: "/steering", label: "Cross-Layer Steering", phase: 5, status: "planned" },
   { href: "/recall", label: "Factual Recall Lab", phase: 6, status: "planned" },
